@@ -1020,18 +1020,17 @@ async function inputHash(str) {
 // "grated ginger", "fresh ginger", "ginger" all contribute "ginger"
 
 async function checkDuplicateInput() {
-  // Returns an existing recipe if the current input matches one already saved, else null
   if (addMode === "url") {
     const url = eid("add-url").value.trim();
     return recipes.find(r => r.url && r.url.trim() === url) || null;
   }
   if (addMode === "text") {
     const h = await inputHash(eid("add-text").value.trim());
-    return recipes.find(r => r.inputHash === h) || null;
+    return recipes.find(r => r.inputMode === "text" && r.inputHash === h) || null;
   }
   if (addMode === "image" && addImages.length) {
     const h = await inputHash(addImages.map(i=>i.b64.slice(0,200)).join("|"));
-    return recipes.find(r => r.inputHash === h) || null;
+    return recipes.find(r => r.inputMode === "image" && r.inputHash === h) || null;
   }
   return null;
 }
@@ -1132,6 +1131,7 @@ eid("preview-save-btn").addEventListener("click", async () => {
     id:String(Date.now()), savedAt:new Date().toISOString(),
     url: url||null,
     inputHash: inputHashVal||null,
+    inputMode: inputHashVal ? addMode : null,
     title: title||addPreviewData?.title||"Untitled",
     source: addPreviewData?.source||(url?srcFromUrl(url):"Manual entry"),
     tags:[...addTags], linkOnly:false,
