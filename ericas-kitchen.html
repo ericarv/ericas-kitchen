@@ -1139,15 +1139,48 @@ function openModal(id) {
   show("modal-overlay");
 }
 
+function renderModalLabels(r) {
+  // Render editable label pills and sync the header tag display
+  const container = eid("modal-labels-pills");
+  if (!container) return;
+  container.innerHTML = "";
+  [...PROTEIN_TAGS, ...CARB_TAGS].forEach(t => {
+    const b = document.createElement("button");
+    const cls = tagCls(t);
+    b.className = "tpill " + cls + ((r.tags||[]).includes(t) ? " on" : "");
+    b.textContent = t;
+    b.addEventListener("click", () => {
+      const idx = (r.tags||[]).indexOf(t);
+      if (idx >= 0) r.tags.splice(idx, 1); else { if(!r.tags) r.tags=[]; r.tags.push(t); }
+      saveRecipes(recipes); syncSaveRecipe(r);
+      renderModalLabels(r);
+      // Update header tags
+      const mt = eid("modal-tags"); mt.innerHTML = "";
+      (r.tags||[]).forEach(tg => { const s=document.createElement("span"); s.className="modal-tag "+tagCls(tg); s.textContent=tg; mt.appendChild(s); });
+      renderCatalogue();
+    });
+    container.appendChild(b);
+  });
+}
+
 function renderModalContent(r) {
   const mc = eid("modal-content");
+
+  // Labels section — always editable
+  const labelsSection = `<div class="modal-sec" style="margin-bottom:18px">
+    <div class="sec-lbl">Labels</div>
+    <div id="modal-labels-pills" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+  </div>`;
+
   if (r.linkOnly || !(r.ingredients||[]).length) {
-    mc.innerHTML = `<div class="modal-sec"><div class="link-only-box">${r.url?`<p>Saved as a link. Open the recipe and use <strong>Add recipe text</strong> below to add ingredients and steps.</p><a class="modal-link" href="${r.url}" target="_blank" rel="noopener">Open recipe ↗</a>`:`<p>No recipe text yet. Tap <strong>Add recipe text</strong> to add ingredients and steps.</p>`}</div></div>`;
+    mc.innerHTML = labelsSection + `<div class="modal-sec"><div class="link-only-box">${r.url?`<p>Saved as a link. Open the recipe and use <strong>Add recipe text</strong> below to add ingredients and steps.</p><a class="modal-link" href="${r.url}" target="_blank" rel="noopener">Open recipe ↗</a>`:`<p>No recipe text yet. Tap <strong>Add recipe text</strong> to add ingredients and steps.</p>`}</div></div>`;
+    renderModalLabels(r);
     return;
   }
   const ings = (r.ingredients||[]).map(i=>`<div class="ming"><div class="ming-dot"></div><span class="ming-name">${i.name}</span><span class="ming-amt">${i.amount}</span></div>`).join("");
   const steps = (r.steps||[]).map((s,i)=>`<li class="mstep"><div class="mstep-n">${i+1}</div><div class="mstep-t">${s}</div></li>`).join("");
-  mc.innerHTML = `<div class="modal-sec"><div class="sec-lbl">Ingredients</div><div class="modal-ings">${ings}</div></div><div class="modal-sec"><div class="sec-lbl">Instructions</div><ul class="modal-steps">${steps}</ul></div>`;
+  mc.innerHTML = labelsSection + `<div class="modal-sec"><div class="sec-lbl">Ingredients</div><div class="modal-ings">${ings}</div></div><div class="modal-sec"><div class="sec-lbl">Instructions</div><ul class="modal-steps">${steps}</ul></div>`;
+  renderModalLabels(r);
 }
 
 eid("modal-close").addEventListener("click", closeModal);
