@@ -956,7 +956,6 @@ updateAddBtn();
 
 // API calls for each mode
 async function parseImages(images) {
-  const hasPdf = images.some(img => img.isPdf);
   const content = [
     ...images.map(img => img.isPdf
       ? { type:"document", source:{ type:"base64", media_type:"application/pdf", data:img.b64 } }
@@ -965,8 +964,7 @@ async function parseImages(images) {
         ? `These ${images.length} files are from the same recipe. Extract and combine all recipe information.`
         : "Extract the recipe from this file." }
   ];
-  const extraHeaders = hasPdf ? { "anthropic-beta": "pdfs-2024-09-25" } : {};
-  const data = await callClaude({ model:"claude-sonnet-4-5", max_tokens:2000, system:SYSTEM_PROMPT, messages:[{ role:"user", content }] }, extraHeaders);
+  const data = await callClaude({ model:"claude-sonnet-4-5", max_tokens:2000, system:SYSTEM_PROMPT, messages:[{ role:"user", content }] });
   const raw = data.content?.find(b=>b.type==="text")?.text || "";
   const match = raw.replace(/```json\s*/g,"").replace(/```\s*/g,"").match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Could not parse response.");
@@ -1042,7 +1040,7 @@ eid("add-btn").addEventListener("click", async () => {
     } else if (msg.includes("500") || msg.includes("529")) {
       showAddError("Anthropic API is temporarily unavailable. Try again in a moment.");
     } else {
-      showAddError(msg || "Something went wrong. Check your API key in Settings (⚙️).");
+      showAddError((msg || "Something went wrong.") + " — if this persists, tap ⚙️ to re-enter your API key.");
     }
   }
   eid("add-btn").disabled = false;
