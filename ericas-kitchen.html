@@ -451,8 +451,7 @@ input,textarea{font-family:inherit}
       <div class="ing-grid" id="preview-ings"></div>
       <div class="sec-lbl">Instructions</div>
       <ul class="steps-list" id="preview-steps"></ul>
-      <div id="preview-duplicate-warning" class="hidden" style="background:#FEF3C7;border:1px solid #D97706;border-radius:10px;padding:11px 14px;margin-bottom:12px;font-size:13px;color:#92400E;line-height:1.5"></div>
-      <div class="act-row">
+<div class="act-row">
         <button class="btn-save" id="preview-save-btn">Save to Catalogue ✓</button>
         <button class="btn-ghost" id="preview-discard-btn">Discard</button>
       </div>
@@ -1010,41 +1009,10 @@ async function parseUrl(url) {
   return parseRecipeText(`URL: ${url}\n\n${pageText}`);
 }
 
-// ─── DUPLICATE DETECTION ─────────────────────────────────────────────────────
-async function inputHash(str) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,20);
-}
-
-// Meaningful words from ingredient names — strips modifiers so
-// "grated ginger", "fresh ginger", "ginger" all contribute "ginger"
-
-async function checkDuplicateInput() {
-  if (addMode === "url") {
-    const url = eid("add-url").value.trim();
-    return recipes.find(r => r.url && r.url.trim() === url) || null;
-  }
-  if (addMode === "text") {
-    const h = await inputHash(eid("add-text").value.trim());
-    return recipes.find(r => r.inputMode === "text" && r.inputHash === h) || null;
-  }
-  if (addMode === "image" && addImages.length) {
-    const h = await inputHash(addImages.map(i=>i.b64.slice(0,200)).join("|"));
-    return recipes.find(r => r.inputMode === "image" && r.inputHash === h) || null;
-  }
-  return null;
-}
 
 eid("add-btn").addEventListener("click", async () => {
   if (!getApiKey()) { showSetup(); return; }
   hide("add-error"); hide("add-preview");
-
-  // Check for duplicate input before hitting the API
-  const dupInput = await checkDuplicateInput();
-  if (dupInput) {
-    showAddError(`Already saved — this ${addMode === "url" ? "link" : "content"} matches "${dupInput.title}" in your catalogue (saved ${fmtDate(dupInput.savedAt)}).`);
-    return;
-  }
 
   show("add-loading"); eid("add-btn").disabled = true;
   try {
@@ -1102,7 +1070,6 @@ function renderAddPreview(data, url, titleOverride) {
   eid("preview-title").textContent = titleOverride || data.title || "";
   eid("preview-source").textContent = data.source || (url?srcFromUrl(url):"Manual entry");
 
-  hide("preview-duplicate-warning"); // input-level duplicate check runs before this
   const tr = eid("preview-tags-row"); tr.innerHTML = "";
   addTags.forEach(t => { const s=document.createElement("span"); s.className="rtag "+tagCls(t); s.textContent=t; tr.appendChild(s); });
   const ig = eid("preview-ings"); ig.innerHTML = "";
@@ -1121,17 +1088,9 @@ function renderAddPreview(data, url, titleOverride) {
 eid("preview-save-btn").addEventListener("click", async () => {
   const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra")?.value.trim()||null);
   const title = eid("add-title").value.trim();
-  // Compute and store the input hash so future duplicates are caught
-  let inputHashVal = null;
-  try {
-    if (addMode === "text") inputHashVal = await inputHash(eid("add-text").value.trim());
-    else if (addMode === "image" && addImages.length) inputHashVal = await inputHash(addImages.map(i=>i.b64.slice(0,200)).join("|"));
-  } catch {}
   const recipe = {
     id:String(Date.now()), savedAt:new Date().toISOString(),
     url: url||null,
-    inputHash: inputHashVal||null,
-    inputMode: inputHashVal ? addMode : null,
     title: title||addPreviewData?.title||"Untitled",
     source: addPreviewData?.source||(url?srcFromUrl(url):"Manual entry"),
     tags:[...addTags], linkOnly:false,
