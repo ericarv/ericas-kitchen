@@ -81,7 +81,7 @@ input,textarea{font-family:inherit}
 @keyframes spin{to{transform:rotate(360deg)}}
 .loading-card p{color:var(--brown-light);font-size:15px;font-style:italic}
 .err{background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:15px 18px;margin-top:16px;color:#991B1B;font-size:14px;line-height:1.5}
-.hidden{display:none}
+.hidden{display:none!important}
 
 /* SECTION LABEL */
 .sec-lbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--brown-light);margin-bottom:10px;display:flex;align-items:center;gap:8px}
@@ -1472,6 +1472,8 @@ function uncheckAll(){Object.keys(checked).forEach(k=>{checked[k]=false;});syncS
 function showSetup() {
   eid("setup-key-input").value = getApiKey();
   eid("setup-status").style.display = "none";
+  hide("picker-overlay");
+  hide("modal-overlay");
   eid("setup-overlay").style.display = "flex";
   setTimeout(() => eid("setup-key-input").focus(), 100);
 }
@@ -1498,7 +1500,17 @@ eid("setup-save-btn").addEventListener("click", async () => {
       eid("setup-status").textContent = "✓ Connected — loading your recipes…";
       const [r,p,c] = await Promise.all([syncLoadRecipes(), syncLoadPlanner(), syncLoadChecked()]);
       recipes=r; planner=p; checked=c; updateBadge();
-      setTimeout(() => { hideSetup(); showToast("✓ Welcome back"); renderPlanner(); }, 600);
+      setTimeout(() => {
+        hideSetup();
+        hide("picker-overlay");
+        hide("modal-overlay");
+        showToast("✓ Welcome back");
+        // Switch to Add tab so no planner buttons render under the closing overlay
+        document.querySelectorAll(".ntab").forEach(b=>b.classList.remove("on"));
+        document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
+        document.querySelector('.ntab[data-tab="add"]').classList.add("on");
+        document.getElementById("view-add").classList.add("on");
+      }, 600);
     } else {
       eid("setup-status").textContent = "⚠️ Wrong password or connection error. Try again.";
     }
