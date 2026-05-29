@@ -1077,8 +1077,13 @@ eid("add-btn").addEventListener("click", async () => {
       rebuildAddTagPills();
       const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra").value.trim()||null);
       // Content-based duplicate check (catches same recipe from different screenshots/sources)
+      // Also checks recipes saved before contentHash existed by computing it on-the-fly
       const contentFp = await contentFingerprint(result);
-      const contentDup = recipes.find(r => r.contentHash && r.contentHash === contentFp);
+      let contentDup = null;
+      for (const r of recipes) {
+        const h = r.contentHash || await contentFingerprint(r);
+        if (h === contentFp) { contentDup = r; break; }
+      }
       if (contentDup) {
         showAddError(`Looks like a duplicate — the ingredients match "${contentDup.title}" already in your catalogue (saved ${fmtDate(contentDup.savedAt)}).`);
       } else {
