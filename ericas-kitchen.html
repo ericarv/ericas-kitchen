@@ -383,13 +383,13 @@ input,textarea{font-family:inherit}
       <div id="input-url" class="hidden">
         <label class="lbl">Recipe Link</label>
         <input class="inp" id="add-url" type="url" placeholder="https://pinchofyum.com/…">
-        <p class="hint">Works with most public recipe sites. For Substack, paywalled, or Instagram — use Screenshots or Text instead.</p>
+        <p class="hint">Works with most public recipe sites. For paywalled or Instagram links — use Screenshots or Text instead.</p>
       </div>
 
       <!-- TEXT MODE -->
       <div id="input-text" class="hidden">
         <label class="lbl">Recipe Text</label>
-        <textarea class="txta" id="add-text" placeholder="Paste the recipe here — ingredients, steps, anything copied from an Instagram caption, website, or screenshot…"></textarea>
+        <textarea class="txta" id="add-text" placeholder="Paste anything here — an Instagram caption, copied website text, a recipe description, or any text with ingredients and steps…"></textarea>
       </div>
 
       <!-- SHARED: optional link + title + tags -->
@@ -541,9 +541,9 @@ input,textarea{font-family:inherit}
 <div class="setup-overlay" id="setup-overlay" style="display:none">
   <div class="setup-card">
     <h2>Welcome to<br>Erica's Kitchen</h2>
-    <p>Enter your password to access your recipes from any device.</p>
-    <label class="lbl" style="margin-top:4px">Password</label>
-    <input class="inp" type="password" id="setup-key-input" placeholder="Enter your password…">
+    <p>Enter your Anthropic API key — it's your password and powers recipe extraction from images, links, and text.</p>
+    <label class="lbl" style="margin-top:4px">Anthropic API Key</label>
+    <input class="inp" type="password" id="setup-key-input" placeholder="sk-ant-…">
     <input type="hidden" id="setup-sb-url">
     <input type="hidden" id="setup-sb-key">
     <button class="btn" id="setup-save-btn" style="margin-top:8px">Sign In</button>
@@ -921,38 +921,28 @@ async function parseImages(images) {
   return JSON.parse(match[0]);
 }
 
-async function parseUrl(url) {
-  const tools = [{ type:"web_search_20250305", name:"web_search" }];
-  const messages = [{ role:"user", content:`Fetch and extract the complete recipe from this URL: ${url}
-
-Return only the JSON recipe object.` }];
-  let currentMessages = [...messages];
-  for (let i=0; i<6; i++) {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{ "Content-Type":"application/json", "x-api-key":getApiKey(), "anthropic-version":"2023-06-01" },
-      body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:4000, system:SYSTEM_PROMPT, tools, messages:currentMessages })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || "API error " + res.status);
-    if (data.stop_reason === "end_turn") {
-      const text = data.content?.find(b=>b.type==="text")?.text || "";
-      const match = text.replace(/```json\s*/g,"").replace(/```\s*/g,"").match(/\{[\s\S]*\}/);
-      if (!match) throw new Error("No recipe found. Try pasting the text instead.");
-      return JSON.parse(match[0]);
-    }
-    if (data.stop_reason === "tool_use") {
-      const toolUseBlocks = data.content.filter(b=>b.type==="tool_use");
-      currentMessages = [
-        ...currentMessages,
-        { role:"assistant", content:data.content },
-        { role:"user", content: toolUseBlocks.map(b=>({ type:"tool_result", tool_use_id:b.id, content:"Search executed. Please extract the recipe and return JSON." })) }
-      ];
-      continue;
-    }
-    throw new Error("Unexpected response. Try pasting the text instead.");
+async function fetchPageText(url) {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`
+  ];
+  for (const proxy of proxies) {
+    try {
+      const res = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
+      if (!res.ok) continue;
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      doc.querySelectorAll("script,style,nav,header,footer,aside,iframe,noscript").forEach(e=>e.remove());
+      const text = (doc.body?.innerText || doc.body?.textContent || "").replace(/\s+/g," ").trim();
+      if (text.length > 100) return text.slice(0, 12000);
+    } catch(e) { continue; }
   }
-  throw new Error("Could not retrieve recipe. Try pasting the text instead.");
+  throw new Error("Could not fetch that URL. Try pasting the recipe text instead.");
+}
+
+async function parseUrl(url) {
+  const pageText = await fetchPageText(url);
+  return parseRecipeText(`URL: ${url}\n\n${pageText}`);
 }
 
 eid("add-btn").addEventListener("click", async () => {
