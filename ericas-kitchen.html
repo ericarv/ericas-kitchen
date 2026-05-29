@@ -405,29 +405,6 @@ input,textarea{font-family:inherit}
         <label class="lbl">Link <span class="opt">(optional — for reference)</span></label>
         <input class="inp" id="add-url-extra" type="url" placeholder="https://… paste source link if you have it">
       </div>
-      <div class="field">
-        <label class="lbl">Title <span class="opt">(optional — auto-detected)</span></label>
-        <input class="inp" id="add-title" placeholder="e.g. Chipotle Salmon with Orange Salsa">
-      </div>
-      <div class="tags-section">
-        <label class="lbl">Labels <span class="opt">(auto-detected · adjust if needed)</span></label>
-        <div class="tag-group">
-          <span class="tag-group-lbl">Protein</span>
-          <div class="tag-pills" id="add-protein-tags"></div>
-        </div>
-        <div class="tag-group">
-          <span class="tag-group-lbl">Carb</span>
-          <div class="tag-pills" id="add-carb-tags"></div>
-        </div>
-        <div class="tag-group">
-          <span class="tag-group-lbl">Produce Season</span>
-          <div class="tag-pills" id="add-season-tags"></div>
-        </div>
-        <div class="tag-group">
-          <span class="tag-group-lbl">Cooking Style</span>
-          <div class="tag-pills" id="add-cook-tags"></div>
-        </div>
-      </div>
       <button class="btn" id="add-btn" disabled>Extract & Preview →</button>
     </div>
 
@@ -443,15 +420,35 @@ input,textarea{font-family:inherit}
     </div>
     <div id="add-preview" class="preview-card hidden">
       <div class="preview-head">
-        <div class="preview-title serif" id="preview-title"></div>
-        <div class="src-tag" id="preview-source"></div>
+        <div style="flex:1">
+          <input class="inp" id="preview-title-input" placeholder="Recipe title" style="font-family:Georgia,serif;font-size:18px;font-weight:700;margin-bottom:6px">
+          <div class="src-tag" id="preview-source" style="display:inline-block"></div>
+        </div>
       </div>
-      <div id="preview-tags-row" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:16px"></div>
-      <div class="sec-lbl">Ingredients · 6 portions</div>
+      <div class="tags-section" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <label class="lbl">Labels <span class="opt">(auto-detected · adjust if needed)</span></label>
+        <div class="tag-group">
+          <span class="tag-group-lbl">Protein</span>
+          <div class="tag-pills" id="preview-protein-tags"></div>
+        </div>
+        <div class="tag-group">
+          <span class="tag-group-lbl">Carb</span>
+          <div class="tag-pills" id="preview-carb-tags"></div>
+        </div>
+        <div class="tag-group">
+          <span class="tag-group-lbl">Produce Season</span>
+          <div class="tag-pills" id="preview-season-tags"></div>
+        </div>
+        <div class="tag-group">
+          <span class="tag-group-lbl">Cooking Style</span>
+          <div class="tag-pills" id="preview-cook-tags"></div>
+        </div>
+      </div>
+      <div class="sec-lbl" style="margin-top:18px">Ingredients · 6 portions</div>
       <div class="ing-grid" id="preview-ings"></div>
       <div class="sec-lbl">Instructions</div>
       <ul class="steps-list" id="preview-steps"></ul>
-<div class="act-row">
+      <div class="act-row">
         <button class="btn-save" id="preview-save-btn">Save to Catalogue ✓</button>
         <button class="btn-ghost" id="preview-discard-btn">Discard</button>
       </div>
@@ -835,13 +832,12 @@ function buildTagPills(containerId, tagList, cls, selectedArr, onChange) {
     c.appendChild(b);
   });
 }
-function rebuildAddTagPills() {
-  buildTagPills("add-protein-tags", PROTEIN_TAGS, "p", addTags, null);
-  buildTagPills("add-carb-tags",    CARB_TAGS,    "c", addTags, null);
-  buildTagPills("add-season-tags",  SEASON_TAGS,  "s", addTags, null);
-  buildTagPills("add-cook-tags",    COOK_TAGS,    "k", addTags, null);
+function rebuildPreviewTagPills() {
+  buildTagPills("preview-protein-tags", PROTEIN_TAGS, "p", addTags, null);
+  buildTagPills("preview-carb-tags",    CARB_TAGS,    "c", addTags, null);
+  buildTagPills("preview-season-tags",  SEASON_TAGS,  "s", addTags, null);
+  buildTagPills("preview-cook-tags",    COOK_TAGS,    "k", addTags, null);
 }
-rebuildAddTagPills();
 
 // Mode switching
 document.querySelectorAll(".itab").forEach(btn => {
@@ -1031,12 +1027,12 @@ eid("add-btn").addEventListener("click", async () => {
     if (result.error) { showAddError(result.error); }
     else {
       addPreviewData = result;
-      // Apply autodetected tags (merge with any user-selected ones)
+      // Apply autodetected tags
+      addTags = [];
       const allValid = [...PROTEIN_TAGS, ...CARB_TAGS, ...SEASON_TAGS, ...COOK_TAGS];
-      (result.tags || []).forEach(t => { if (allValid.includes(t) && !addTags.includes(t)) addTags.push(t); });
-      rebuildAddTagPills();
-      const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra").value.trim()||null);
-      renderAddPreview(result, url, eid("add-title").value.trim());
+      (result.tags || []).forEach(t => { if (allValid.includes(t)) addTags.push(t); });
+      const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra")?.value.trim()||null);
+      renderAddPreview(result, url);
     }
   } catch(e) {
     hide("add-loading");
@@ -1065,13 +1061,10 @@ eid("add-btn").addEventListener("click", async () => {
 
 function showAddError(msg) { eid("add-error").textContent = "⚠️ " + msg; show("add-error"); }
 
-function renderAddPreview(data, url, titleOverride) {
-  const resolvedTitle = (titleOverride || data.title || "").toLowerCase().trim();
-  eid("preview-title").textContent = titleOverride || data.title || "";
-  eid("preview-source").textContent = data.source || (url?srcFromUrl(url):"Manual entry");
-
-  const tr = eid("preview-tags-row"); tr.innerHTML = "";
-  addTags.forEach(t => { const s=document.createElement("span"); s.className="rtag "+tagCls(t); s.textContent=t; tr.appendChild(s); });
+function renderAddPreview(data, url) {
+  eid("preview-title-input").value = data.title || "";
+  eid("preview-source").textContent = data.source || (url ? srcFromUrl(url) : "Manual entry");
+  rebuildPreviewTagPills();
   const ig = eid("preview-ings"); ig.innerHTML = "";
   (data.ingredients||[]).forEach(ing => {
     const d=document.createElement("div"); d.className="ing-pill";
@@ -1087,7 +1080,7 @@ function renderAddPreview(data, url, titleOverride) {
 
 eid("preview-save-btn").addEventListener("click", async () => {
   const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra")?.value.trim()||null);
-  const title = eid("add-title").value.trim();
+  const title = eid("preview-title-input").value.trim();
   const recipe = {
     id:String(Date.now()), savedAt:new Date().toISOString(),
     url: url||null,
@@ -1105,13 +1098,14 @@ eid("preview-save-btn").addEventListener("click", async () => {
 eid("preview-discard-btn").addEventListener("click", () => { hide("add-preview"); addPreviewData=null; });
 
 function resetAddForm() {
-  eid("add-url").value=""; eid("add-text").value=""; eid("add-title").value="";
+  eid("add-url").value=""; eid("add-text").value="";
   if(eid("add-url-extra")) eid("add-url-extra").value="";
+  if(eid("preview-title-input")) eid("preview-title-input").value="";
   addTags=[]; addImages=[]; addMode="image";
-  rebuildAddTagPills();
   document.querySelectorAll(".itab").forEach(b=>b.classList.remove("on"));
   document.querySelector('.itab[data-mode="image"]').classList.add("on");
-  show("input-image"); hide("input-url"); hide("input-text"); hide("add-url-optional");
+  show("input-image"); hide("input-url"); hide("input-text");
+  show("add-url-optional");
   hide("add-preview"); hide("add-error"); hide("add-link-preview"); hide("add-loading");
   renderImageThumbs();
   addPreviewData=null; updateAddBtn();
