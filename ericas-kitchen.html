@@ -1016,14 +1016,36 @@ async function inputHash(str) {
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,20);
 }
 
-async function contentFingerprint(result) {
-  // Hash sorted, normalised ingredient names — same recipe = same hash regardless of source
-  const names = (result.ingredients || [])
-    .map(i => i.name.toLowerCase().replace(/[^a-z0-9]/g,"").trim())
-    .filter(Boolean)
-    .sort()
-    .join("|");
-  return inputHash(names);
+// Meaningful words from ingredient names — strips modifiers so
+// "grated ginger", "fresh ginger", "ginger" all contribute "ginger"
+const INGR_STOP = new Set(["fresh","dried","large","small","medium","whole","sliced","chopped","minced","grated","ground","bonein","skinon","extra","lean","raw","about","taste","optional","and","for","the","with","inch","pieces","cut"]);
+
+function ingredientWordSet(recipe) {
+  const words = new Set();
+  (recipe.ingredients||[]).forEach(ing => {
+    ing.name.toLowerCase().replace(/[^a-z\s]/g,"").trim().split(/\s+/)
+      .filter(w => w.length > 2 && !INGR_STOP.has(w))
+      .forEach(w => words.add(w));
+  });
+  return words;
+}
+
+function jaccardSimilarity(setA, setB) {
+  if (!setA.size || !setB.size) return 0;
+  const intersection = [...setA].filter(w => setB.has(w)).length;
+  const union = new Set([...setA, ...setB]).size;
+  return intersection / union;
+}
+
+function findContentDuplicate(result) {
+  const newWords = ingredientWordSet(result);
+  if (newWords.size < 3) return null;
+  for (const r of recipes) {
+    if (!(r.ingredients||[]).length) continue;
+    const sim = jaccardSimilarity(newWords, ingredientWordSet(r));
+    if (sim >= 0.65) return r;
+  }
+  return null;
 }
 
 async function checkDuplicateInput() {
@@ -1076,18 +1098,12 @@ eid("add-btn").addEventListener("click", async () => {
       (result.tags || []).forEach(t => { if (allValid.includes(t) && !addTags.includes(t)) addTags.push(t); });
       rebuildAddTagPills();
       const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra").value.trim()||null);
-      // Content-based duplicate check (catches same recipe from different screenshots/sources)
-      // Also checks recipes saved before contentHash existed by computing it on-the-fly
-      const contentFp = await contentFingerprint(result);
-      let contentDup = null;
-      for (const r of recipes) {
-        const h = r.contentHash || await contentFingerprint(r);
-        if (h === contentFp) { contentDup = r; break; }
-      }
+      // Content-based duplicate check — fuzzy ingredient matching works across
+      // screenshots, text pastes, links and PDFs of the same recipe
+      const contentDup = findContentDuplicate(result);
       if (contentDup) {
         showAddError(`Looks like a duplicate — the ingredients match "${contentDup.title}" already in your catalogue (saved ${fmtDate(contentDup.savedAt)}).`);
       } else {
-        addPreviewData._contentHash = contentFp;
         renderAddPreview(result, url, eid("add-title").value.trim());
       }
     }
@@ -1152,7 +1168,6 @@ eid("preview-save-btn").addEventListener("click", async () => {
     id:String(Date.now()), savedAt:new Date().toISOString(),
     url: url||null,
     inputHash: inputHashVal||null,
-    contentHash: addPreviewData?._contentHash||null,
     title: title||addPreviewData?.title||"Untitled",
     source: addPreviewData?.source||(url?srcFromUrl(url):"Manual entry"),
     tags:[...addTags], linkOnly:false,
