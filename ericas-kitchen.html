@@ -353,30 +353,30 @@ input,textarea{font-family:inherit}
     <div class="card">
       <!-- INPUT MODE TABS -->
       <div class="input-sel">
-        <button class="itab on" data-mode="image"><span class="itab-icon">📷</span><span class="itab-lbl">Screenshots</span></button>
+        <button class="itab on" data-mode="image"><span class="itab-icon">📷</span><span class="itab-lbl">Photos & PDF</span></button>
         <button class="itab" data-mode="url"><span class="itab-icon">🔗</span><span class="itab-lbl">Link</span></button>
         <button class="itab" data-mode="text"><span class="itab-icon">✏️</span><span class="itab-lbl">Text</span></button>
       </div>
 
       <!-- IMAGE MODE -->
       <div id="input-image">
-        <label class="lbl">Screenshots <span class="opt" id="img-count-lbl"></span></label>
+        <label class="lbl">Photos & PDFs <span class="opt" id="img-count-lbl"></span></label>
         <div id="img-empty">
           <label class="img-drop" id="img-drop-zone">
-            <input type="file" accept="image/*" multiple id="img-file-input" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+            <input type="file" accept="image/*,.pdf" multiple id="img-file-input" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
             <div class="img-drop-icon">📸</div>
-            <div class="img-drop-title">Tap to add screenshots</div>
-            <div class="img-drop-sub"><strong>Browse photos</strong> · JPG, PNG · multiple OK</div>
+            <div class="img-drop-title">Tap to add photos or a PDF</div>
+            <div class="img-drop-sub"><strong>Browse files</strong> · JPG, PNG, PDF · multiple OK</div>
           </label>
         </div>
         <div id="img-filled" class="hidden">
           <div class="img-thumbs" id="img-thumbs"></div>
           <label class="img-more" id="img-more-btn">
-            <input type="file" accept="image/*" multiple id="img-more-input" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
+            <input type="file" accept="image/*,.pdf" multiple id="img-more-input" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">
             + More
           </label>
         </div>
-        <p class="hint">All screenshots are read together as one recipe. Great for multi-page Instagram captions.</p>
+        <p class="hint">Screenshots, book photos, and PDFs all work. Multiple files are read together as one recipe.</p>
       </div>
 
       <!-- URL MODE -->
@@ -747,14 +747,15 @@ function apiUrl() {
   throw new Error("Open this app via the local server: run `python3 server.py` in the app folder, then visit http://localhost:8080");
 }
 
-async function callClaude(payload) {
+async function callClaude(payload, extraHeaders = {}) {
   const url = apiUrl();
   const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-api-key": getApiKey(),
-      "anthropic-version": "2023-06-01"
+      "anthropic-version": "2023-06-01",
+      ...extraHeaders
     },
     body: JSON.stringify(payload)
   });
@@ -855,17 +856,29 @@ function resizeImage(file) {
   });
 }
 
+function readPdf(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev => {
+      const b64 = ev.target.result.split(",")[1];
+      resolve({ preview: null, b64, type: "application/pdf", isPdf: true, name: file.name });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 async function handleImageFiles(files) {
-  const valid = Array.from(files).filter(f=>f.type.startsWith("image/"));
+  const valid = Array.from(files).filter(f => f.type.startsWith("image/") || f.type === "application/pdf");
   if (!valid.length) return;
   try {
     for (const f of valid) {
-      const img = await resizeImage(f);
-      addImages.push(img);
+      const item = f.type === "application/pdf" ? await readPdf(f) : await resizeImage(f);
+      addImages.push(item);
     }
     renderImageThumbs();
     updateAddBtn();
-  } catch(e) { showAddError("Could not load image: " + e.message); }
+  } catch(e) { showAddError("Could not load file: " + e.message); }
 }
 
 function renderImageThumbs() {
@@ -875,10 +888,18 @@ function renderImageThumbs() {
   const thumbs = eid("img-thumbs"); thumbs.innerHTML = "";
   addImages.forEach((img,i) => {
     const wrap = document.createElement("div"); wrap.className = "img-thumb";
-    const im = document.createElement("img"); im.src = img.preview; im.alt = "Screenshot " + (i+1);
+    if (img.isPdf) {
+      const icon = document.createElement("div");
+      icon.style.cssText = "width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:var(--tc-pale);font-size:11px;color:var(--tc);font-weight:700;padding:6px;text-align:center;overflow:hidden";
+      icon.innerHTML = `<div style="font-size:26px">📄</div><div style="word-break:break-all;line-height:1.2">${img.name||"PDF"}</div>`;
+      wrap.appendChild(icon);
+    } else {
+      const im = document.createElement("img"); im.src = img.preview; im.alt = "Photo " + (i+1);
+      wrap.appendChild(im);
+    }
     const rm = document.createElement("button"); rm.className = "img-rm"; rm.textContent = "✕";
     rm.addEventListener("click", e => { e.stopPropagation(); addImages.splice(i,1); renderImageThumbs(); updateAddBtn(); });
-    wrap.appendChild(im); wrap.appendChild(rm); thumbs.appendChild(wrap);
+    wrap.appendChild(rm); thumbs.appendChild(wrap);
   });
 }
 
@@ -915,13 +936,17 @@ updateAddBtn();
 
 // API calls for each mode
 async function parseImages(images) {
+  const hasPdf = images.some(img => img.isPdf);
   const content = [
-    ...images.map(img => ({ type:"image", source:{ type:"base64", media_type:img.type, data:img.b64 } })),
+    ...images.map(img => img.isPdf
+      ? { type:"document", source:{ type:"base64", media_type:"application/pdf", data:img.b64 } }
+      : { type:"image",    source:{ type:"base64", media_type:img.type,           data:img.b64 } }),
     { type:"text", text: images.length > 1
-        ? `These ${images.length} screenshots are from the same recipe. Extract and combine all recipe information.`
-        : "Extract the recipe shown in this image." }
+        ? `These ${images.length} files are from the same recipe. Extract and combine all recipe information.`
+        : "Extract the recipe from this file." }
   ];
-  const data = await callClaude({ model:"claude-sonnet-4-5", max_tokens:2000, system:SYSTEM_PROMPT, messages:[{ role:"user", content }] });
+  const extraHeaders = hasPdf ? { "anthropic-beta": "pdfs-2024-09-25" } : {};
+  const data = await callClaude({ model:"claude-sonnet-4-5", max_tokens:2000, system:SYSTEM_PROMPT, messages:[{ role:"user", content }] }, extraHeaders);
   const raw = data.content?.find(b=>b.type==="text")?.text || "";
   const match = raw.replace(/```json\s*/g,"").replace(/```\s*/g,"").match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Could not parse response.");
