@@ -765,7 +765,7 @@ async function callClaude(payload) {
 
 async function parseRecipeText(text) {
   const data = await callClaude({
-    model: "claude-opus-4-5-20250514",
+    model: "claude-opus-4-5",
     max_tokens: 2000,
     system: SYSTEM_PROMPT,
     messages: [{ role:"user", content:`Extract the recipe from this text:\n\n${text}` }]
@@ -921,7 +921,7 @@ async function parseImages(images) {
         ? `These ${images.length} screenshots are from the same recipe. Extract and combine all recipe information.`
         : "Extract the recipe shown in this image." }
   ];
-  const data = await callClaude({ model:"claude-opus-4-5-20250514", max_tokens:2000, system:SYSTEM_PROMPT, messages:[{ role:"user", content }] });
+  const data = await callClaude({ model:"claude-opus-4-5", max_tokens:2000, system:SYSTEM_PROMPT, messages:[{ role:"user", content }] });
   const raw = data.content?.find(b=>b.type==="text")?.text || "";
   const match = raw.replace(/```json\s*/g,"").replace(/```\s*/g,"").match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Could not parse response.");
