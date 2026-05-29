@@ -421,7 +421,7 @@ input,textarea{font-family:inherit}
     <div id="add-preview" class="preview-card hidden">
       <div class="preview-head">
         <div style="flex:1">
-          <input class="inp" id="preview-title-input" placeholder="Recipe title" style="font-family:Georgia,serif;font-size:18px;font-weight:700;margin-bottom:6px">
+          <textarea class="inp" id="preview-title-input" placeholder="Recipe title" rows="1" style="font-family:Georgia,serif;font-size:18px;font-weight:700;margin-bottom:6px;resize:none;overflow:hidden;line-height:1.4"></textarea>
           <div class="src-tag" id="preview-source" style="display:inline-block"></div>
         </div>
       </div>
@@ -674,7 +674,7 @@ async function syncSaveChecked(c) {
 }
 const PROTEIN_TAGS = ["Egg","Beans","Fish","Poultry","Red Meat"];
 const CARB_TAGS    = ["Root","Pasta","Bread","Rice"];
-const SEASON_TAGS  = ["Spring","Summer","Fall","Winter"];
+const SEASON_TAGS  = ["All","Spring","Summer","Fall","Winter"];
 const COOK_TAGS    = ["Sheet Pan","Grill","One Pot"];
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const STORAGE_KEY  = "ek-recipes-v1";
@@ -1061,8 +1061,17 @@ eid("add-btn").addEventListener("click", async () => {
 
 function showAddError(msg) { eid("add-error").textContent = "⚠️ " + msg; show("add-error"); }
 
+function autoResizeTitle() {
+  const ta = eid("preview-title-input");
+  ta.style.height = "auto";
+  ta.style.height = ta.scrollHeight + "px";
+}
+
 function renderAddPreview(data, url) {
-  eid("preview-title-input").value = data.title || "";
+  const ta = eid("preview-title-input");
+  ta.value = data.title || "";
+  ta.addEventListener("input", autoResizeTitle);
+  setTimeout(autoResizeTitle, 0);
   eid("preview-source").textContent = data.source || (url ? srcFromUrl(url) : "Manual entry");
   rebuildPreviewTagPills();
   const ig = eid("preview-ings"); ig.innerHTML = "";
