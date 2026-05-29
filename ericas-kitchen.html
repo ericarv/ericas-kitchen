@@ -1010,10 +1010,20 @@ async function parseUrl(url) {
   return parseRecipeText(`URL: ${url}\n\n${pageText}`);
 }
 
-// ─── DUPLICATE INPUT DETECTION ───────────────────────────────────────────────
+// ─── DUPLICATE DETECTION ─────────────────────────────────────────────────────
 async function inputHash(str) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,20);
+}
+
+async function contentFingerprint(result) {
+  // Hash sorted, normalised ingredient names — same recipe = same hash regardless of source
+  const names = (result.ingredients || [])
+    .map(i => i.name.toLowerCase().replace(/[^a-z0-9]/g,"").trim())
+    .filter(Boolean)
+    .sort()
+    .join("|");
+  return inputHash(names);
 }
 
 async function checkDuplicateInput() {
@@ -1066,7 +1076,15 @@ eid("add-btn").addEventListener("click", async () => {
       (result.tags || []).forEach(t => { if (allValid.includes(t) && !addTags.includes(t)) addTags.push(t); });
       rebuildAddTagPills();
       const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra").value.trim()||null);
-      renderAddPreview(result, url, eid("add-title").value.trim());
+      // Content-based duplicate check (catches same recipe from different screenshots/sources)
+      const contentFp = await contentFingerprint(result);
+      const contentDup = recipes.find(r => r.contentHash && r.contentHash === contentFp);
+      if (contentDup) {
+        showAddError(`Looks like a duplicate — the ingredients match "${contentDup.title}" already in your catalogue (saved ${fmtDate(contentDup.savedAt)}).`);
+      } else {
+        addPreviewData._contentHash = contentFp;
+        renderAddPreview(result, url, eid("add-title").value.trim());
+      }
     }
   } catch(e) {
     hide("add-loading");
@@ -1129,6 +1147,7 @@ eid("preview-save-btn").addEventListener("click", async () => {
     id:String(Date.now()), savedAt:new Date().toISOString(),
     url: url||null,
     inputHash: inputHashVal||null,
+    contentHash: addPreviewData?._contentHash||null,
     title: title||addPreviewData?.title||"Untitled",
     source: addPreviewData?.source||(url?srcFromUrl(url):"Manual entry"),
     tags:[...addTags], linkOnly:false,
