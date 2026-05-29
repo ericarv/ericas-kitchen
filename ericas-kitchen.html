@@ -383,7 +383,7 @@ input,textarea{font-family:inherit}
       <div id="input-url" class="hidden">
         <label class="lbl">Recipe Link</label>
         <input class="inp" id="add-url" type="url" placeholder="https://pinchofyum.com/…">
-        <p class="hint">Works with most public recipe sites. For paywalled or Instagram links — use Screenshots or Text instead.</p>
+        <p class="hint">Works with most public recipe sites. For Substack, Instagram, or paywalled pages — open the link, copy the text, and use the Text tab instead.</p>
       </div>
 
       <!-- TEXT MODE -->
@@ -765,7 +765,7 @@ async function callClaude(payload) {
 
 async function parseRecipeText(text) {
   const data = await callClaude({
-    model: "claude-opus-4-5",
+    model: "claude-sonnet-4-5",
     max_tokens: 2000,
     system: SYSTEM_PROMPT,
     messages: [{ role:"user", content:`Extract the recipe from this text:\n\n${text}` }]
@@ -921,7 +921,7 @@ async function parseImages(images) {
         ? `These ${images.length} screenshots are from the same recipe. Extract and combine all recipe information.`
         : "Extract the recipe shown in this image." }
   ];
-  const data = await callClaude({ model:"claude-opus-4-5", max_tokens:2000, system:SYSTEM_PROMPT, messages:[{ role:"user", content }] });
+  const data = await callClaude({ model:"claude-sonnet-4-5", max_tokens:2000, system:SYSTEM_PROMPT, messages:[{ role:"user", content }] });
   const raw = data.content?.find(b=>b.type==="text")?.text || "";
   const match = raw.replace(/```json\s*/g,"").replace(/```\s*/g,"").match(/\{[\s\S]*\}/);
   if (!match) throw new Error("Could not parse response.");
@@ -978,10 +978,16 @@ eid("add-btn").addEventListener("click", async () => {
   } catch(e) {
     hide("add-loading");
     const msg = e.message || "";
-    if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("CORS")) {
-      showAddError("Network error: the Anthropic API blocked the request (CORS). This app must be served over HTTP, not opened as a file://. Try using a local server or Claude.ai.");
-    } else if (msg.includes("401") || msg.includes("invalid x-api-key") || msg.includes("authentication")) {
-      showAddError("Invalid API key. Check your Anthropic API key in Settings (⚙️).");
+    if (msg.includes("Could not fetch")) {
+      showAddError("Could not fetch that URL — the site may block scrapers (common with Substack, Instagram, paywalled pages). Try the Text tab: open the link, copy the recipe text, and paste it there.");
+    } else if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("CORS")) {
+      showAddError("Network error reaching the API. Make sure you're running the app via `python3 server.py`, not as a file://.");
+    } else if (msg.includes("invalid x-api-key") || msg.includes("Invalid API Key")) {
+      showAddError("Invalid API key — double-check it in Settings (⚙️). It should start with sk-ant-.");
+    } else if (msg.includes("permission") || msg.includes("access") || msg.includes("403")) {
+      showAddError("Your API key doesn't have access to this model. Check your Anthropic plan at console.anthropic.com.");
+    } else if (msg.includes("401")) {
+      showAddError("Authentication failed — check your API key in Settings (⚙️).");
     } else if (msg.includes("429")) {
       showAddError("Rate limit reached. Wait a moment and try again.");
     } else if (msg.includes("500") || msg.includes("529")) {
