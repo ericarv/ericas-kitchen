@@ -1010,9 +1010,40 @@ async function parseUrl(url) {
   return parseRecipeText(`URL: ${url}\n\n${pageText}`);
 }
 
+// ─── DUPLICATE INPUT DETECTION ───────────────────────────────────────────────
+async function inputHash(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("").slice(0,20);
+}
+
+async function checkDuplicateInput() {
+  // Returns an existing recipe if the current input matches one already saved, else null
+  if (addMode === "url") {
+    const url = eid("add-url").value.trim();
+    return recipes.find(r => r.url && r.url.trim() === url) || null;
+  }
+  if (addMode === "text") {
+    const h = await inputHash(eid("add-text").value.trim());
+    return recipes.find(r => r.inputHash === h) || null;
+  }
+  if (addMode === "image" && addImages.length) {
+    const h = await inputHash(addImages.map(i=>i.b64.slice(0,200)).join("|"));
+    return recipes.find(r => r.inputHash === h) || null;
+  }
+  return null;
+}
+
 eid("add-btn").addEventListener("click", async () => {
   if (!getApiKey()) { showSetup(); return; }
   hide("add-error"); hide("add-preview");
+
+  // Check for duplicate input before hitting the API
+  const dupInput = await checkDuplicateInput();
+  if (dupInput) {
+    showAddError(`Already saved — this ${addMode === "url" ? "link" : "content"} matches "${dupInput.title}" in your catalogue (saved ${fmtDate(dupInput.savedAt)}).`);
+    return;
+  }
+
   show("add-loading"); eid("add-btn").disabled = true;
   try {
     let result;
@@ -1069,15 +1100,7 @@ function renderAddPreview(data, url, titleOverride) {
   eid("preview-title").textContent = titleOverride || data.title || "";
   eid("preview-source").textContent = data.source || (url?srcFromUrl(url):"Manual entry");
 
-  // Duplicate detection
-  const dupWarn = eid("preview-duplicate-warning");
-  const dup = resolvedTitle && recipes.find(r => r.title?.toLowerCase().trim() === resolvedTitle);
-  if (dup) {
-    dupWarn.textContent = `⚠️ "${dup.title}" is already in your catalogue (saved ${fmtDate(dup.savedAt)}). You can still save this as a separate entry.`;
-    show(dupWarn);
-  } else {
-    hide(dupWarn);
-  }
+  hide("preview-duplicate-warning"); // input-level duplicate check runs before this
   const tr = eid("preview-tags-row"); tr.innerHTML = "";
   addTags.forEach(t => { const s=document.createElement("span"); s.className="rtag "+tagCls(t); s.textContent=t; tr.appendChild(s); });
   const ig = eid("preview-ings"); ig.innerHTML = "";
@@ -1093,12 +1116,19 @@ function renderAddPreview(data, url, titleOverride) {
   show("add-preview");
 }
 
-eid("preview-save-btn").addEventListener("click", () => {
+eid("preview-save-btn").addEventListener("click", async () => {
   const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra")?.value.trim()||null);
   const title = eid("add-title").value.trim();
+  // Compute and store the input hash so future duplicates are caught
+  let inputHashVal = null;
+  try {
+    if (addMode === "text") inputHashVal = await inputHash(eid("add-text").value.trim());
+    else if (addMode === "image" && addImages.length) inputHashVal = await inputHash(addImages.map(i=>i.b64.slice(0,200)).join("|"));
+  } catch {}
   const recipe = {
     id:String(Date.now()), savedAt:new Date().toISOString(),
     url: url||null,
+    inputHash: inputHashVal||null,
     title: title||addPreviewData?.title||"Untitled",
     source: addPreviewData?.source||(url?srcFromUrl(url):"Manual entry"),
     tags:[...addTags], linkOnly:false,
