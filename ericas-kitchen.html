@@ -970,10 +970,21 @@ eid("add-btn").addEventListener("click", async () => {
     }
   } catch(e) {
     hide("add-loading");
-    showAddError(e.message || "Something went wrong. Check your API key.");
+    const msg = e.message || "";
+    if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("CORS")) {
+      showAddError("Network error: the Anthropic API blocked the request (CORS). This app must be served over HTTP, not opened as a file://. Try using a local server or Claude.ai.");
+    } else if (msg.includes("401") || msg.includes("invalid x-api-key") || msg.includes("authentication")) {
+      showAddError("Invalid API key. Check your Anthropic API key in Settings (⚙️).");
+    } else if (msg.includes("429")) {
+      showAddError("Rate limit reached. Wait a moment and try again.");
+    } else if (msg.includes("500") || msg.includes("529")) {
+      showAddError("Anthropic API is temporarily unavailable. Try again in a moment.");
+    } else {
+      showAddError(msg || "Something went wrong. Check your API key in Settings (⚙️).");
+    }
   }
   eid("add-btn").disabled = false;
-  updateAddBtn();
+  eid("add-btn").textContent = "Extract & Preview →";
 });
 
 function showAddError(msg) { eid("add-error").textContent = "⚠️ " + msg; show("add-error"); }
