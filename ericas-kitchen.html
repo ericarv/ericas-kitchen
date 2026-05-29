@@ -1326,6 +1326,7 @@ function openEditPanel() {
   eid("edit-txta").value = "";
   hide("edit-error");
   hide("edit-reextract-section");
+  hide("modal-content");
   renderEditIngredients(r.ingredients||[]);
   renderEditSteps(r.steps||[]);
   show("modal-edit-panel");
@@ -1411,16 +1412,17 @@ eid("edit-save-btn").addEventListener("click", ()=>{
   r.url=eid("edit-link").value.trim()||null;
   r.linkOnly=false;
   saveRecipes(recipes); syncSaveRecipe(r);
-  // Refresh modal header
   eid("modal-src").textContent=r.source||"";
   eid("modal-title").textContent=r.title||"";
   if(r.url){eid("modal-link").href=r.url;show("modal-link");}else hide("modal-link");
   hide("modal-edit-panel"); editingModal=false;
-  renderModalContent(r); renderCatalogue();
+  renderModalContent(r); show("modal-content"); renderCatalogue();
   showToast("✓ Recipe updated");
 });
 
-eid("edit-cancel-btn").addEventListener("click", ()=>{ hide("modal-edit-panel"); editingModal=false; });
+eid("edit-cancel-btn").addEventListener("click", ()=>{
+  hide("modal-edit-panel"); editingModal=false; show("modal-content");
+});
 
 // ─── PLANNER ─────────────────────────────────────────────────────────────────
 eid("week-prev").addEventListener("click", () => { currentWeekKey=offsetWeek(currentWeekKey,-1); renderPlanner(); });
