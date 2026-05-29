@@ -97,8 +97,9 @@ input,textarea{font-family:inherit}
 .preview-title{font-family:Georgia,serif;font-size:22px;color:var(--brown);line-height:1.3;flex:1}
 .src-tag{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--tc);background:var(--tc-pale);padding:4px 10px;border-radius:20px;white-space:nowrap}
 .ing-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:7px;margin-bottom:20px}
-.ing-pill{background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:13px;color:var(--brown);line-height:1.3}
-.ing-pill .amt{font-weight:700;color:var(--tc)}
+.ing-pill{background:var(--cream);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:13px;color:var(--brown);line-height:1.4}
+.ing-pill .ing-name{font-weight:700;color:var(--brown);display:block}
+.ing-pill .ing-amt{color:var(--brown-light);font-size:12px;display:block}
 .steps-list{list-style:none;margin-bottom:20px}
 .step-row{display:flex;gap:12px;margin-bottom:12px;align-items:flex-start}
 .step-n{width:24px;height:24px;min-width:24px;background:var(--tc);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:2px}
@@ -168,10 +169,10 @@ input,textarea{font-family:inherit}
 .modal-body{padding:24px 28px}
 .modal-sec{margin-bottom:24px}
 .modal-ings{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
-.ming{display:flex;align-items:center;gap:8px;padding:8px 11px;background:#fff;border-radius:9px;border:1px solid var(--border);font-size:13px}
-.ming-dot{width:6px;height:6px;min-width:6px;background:var(--tc);border-radius:50%}
-.ming-name{color:var(--brown);flex:1}
-.ming-amt{color:var(--tc);font-weight:700;font-size:12px}
+.ming{display:flex;align-items:flex-start;gap:8px;padding:8px 11px;background:#fff;border-radius:9px;border:1px solid var(--border);font-size:13px}
+.ming-dot{width:6px;height:6px;min-width:6px;background:var(--tc);border-radius:50%;margin-top:5px}
+.ming-name{color:var(--brown);font-weight:700;display:block;line-height:1.3}
+.ming-amt{color:var(--brown-light);font-size:12px;display:block;margin-top:1px}
 .modal-steps{list-style:none}
 .mstep{display:flex;gap:14px;margin-bottom:14px;align-items:flex-start}
 .mstep-n{width:26px;height:26px;min-width:26px;background:var(--tc);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
@@ -737,6 +738,7 @@ Required structure:
 
 RULES:
 - Scale to 6 portions. Embed specific measurements in every step.
+- For ingredients: "name" = clean ingredient only (e.g. "chicken thighs", "garlic", "parsley") — no prep words, no descriptors. "amount" = quantity scaled to 6 portions + any relevant prep context (e.g. "900g, bone-in skin-on", "4 cloves, grated", "1 bunch, roughly chopped"). Keep name short and clean.
 - For "tags", auto-detect from these lists only — include only tags that clearly apply:
   Protein: Egg, Beans, Fish, Poultry, Red Meat
   Carb: Root, Pasta, Bread, Rice
@@ -1126,7 +1128,7 @@ function renderAddPreview(data, url) {
   const ig = eid("preview-ings"); ig.innerHTML = "";
   (data.ingredients||[]).forEach(ing => {
     const d=document.createElement("div"); d.className="ing-pill";
-    d.innerHTML=`<span class="amt">${ing.amount}</span> ${ing.name}`; ig.appendChild(d);
+    d.innerHTML=`<span class="ing-name">${ing.name}</span><span class="ing-amt">${ing.amount}</span>`; ig.appendChild(d);
   });
   const sl = eid("preview-steps"); sl.innerHTML = "";
   (data.steps||[]).forEach((step,i) => {
@@ -1298,7 +1300,7 @@ function renderModalContent(r) {
     renderModalLabels(r);
     return;
   }
-  const ings = (r.ingredients||[]).map(i=>`<div class="ming"><div class="ming-dot"></div><span class="ming-name">${i.name}</span><span class="ming-amt">${i.amount}</span></div>`).join("");
+  const ings = (r.ingredients||[]).map(i=>`<div class="ming"><div class="ming-dot"></div><div style="flex:1"><span class="ming-name">${i.name}</span>${i.amount?`<span class="ming-amt">${i.amount}</span>`:""}</div></div>`).join("");
   const steps = (r.steps||[]).map((s,i)=>`<li class="mstep"><div class="mstep-n">${i+1}</div><div class="mstep-t">${s}</div></li>`).join("");
   mc.innerHTML = labelsSection + `<div class="modal-sec"><div class="sec-lbl">Ingredients</div><div class="modal-ings">${ings}</div></div><div class="modal-sec"><div class="sec-lbl">Instructions</div><ul class="modal-steps">${steps}</ul></div>`;
   renderModalLabels(r);
