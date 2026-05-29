@@ -1018,35 +1018,6 @@ async function inputHash(str) {
 
 // Meaningful words from ingredient names — strips modifiers so
 // "grated ginger", "fresh ginger", "ginger" all contribute "ginger"
-const INGR_STOP = new Set(["fresh","dried","large","small","medium","whole","sliced","chopped","minced","grated","ground","bonein","skinon","extra","lean","raw","about","taste","optional","and","for","the","with","inch","pieces","cut"]);
-
-function ingredientWordSet(recipe) {
-  const words = new Set();
-  (recipe.ingredients||[]).forEach(ing => {
-    ing.name.toLowerCase().replace(/[^a-z\s]/g,"").trim().split(/\s+/)
-      .filter(w => w.length > 2 && !INGR_STOP.has(w))
-      .forEach(w => words.add(w));
-  });
-  return words;
-}
-
-function jaccardSimilarity(setA, setB) {
-  if (!setA.size || !setB.size) return 0;
-  const intersection = [...setA].filter(w => setB.has(w)).length;
-  const union = new Set([...setA, ...setB]).size;
-  return intersection / union;
-}
-
-function findContentDuplicate(result) {
-  const newWords = ingredientWordSet(result);
-  if (newWords.size < 3) return null;
-  for (const r of recipes) {
-    if (!(r.ingredients||[]).length) continue;
-    const sim = jaccardSimilarity(newWords, ingredientWordSet(r));
-    if (sim >= 0.65) return r;
-  }
-  return null;
-}
 
 async function checkDuplicateInput() {
   // Returns an existing recipe if the current input matches one already saved, else null
@@ -1098,14 +1069,7 @@ eid("add-btn").addEventListener("click", async () => {
       (result.tags || []).forEach(t => { if (allValid.includes(t) && !addTags.includes(t)) addTags.push(t); });
       rebuildAddTagPills();
       const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra").value.trim()||null);
-      // Content-based duplicate check — fuzzy ingredient matching works across
-      // screenshots, text pastes, links and PDFs of the same recipe
-      const contentDup = findContentDuplicate(result);
-      if (contentDup) {
-        showAddError(`Looks like a duplicate — the ingredients match "${contentDup.title}" already in your catalogue (saved ${fmtDate(contentDup.savedAt)}).`);
-      } else {
-        renderAddPreview(result, url, eid("add-title").value.trim());
-      }
+      renderAddPreview(result, url, eid("add-title").value.trim());
     }
   } catch(e) {
     hide("add-loading");
