@@ -71,9 +71,11 @@ input,textarea{font-family:inherit}
 .tpill{padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;font-weight:700;background:#fff;color:var(--brown-light);transition:all .15s}
 .tpill.p.on{background:var(--ptag-bg);border-color:var(--ptag);color:var(--ptag)}
 .tpill.c.on{background:var(--ctag-bg);border-color:var(--ctag);color:var(--ctag)}
+.tpill.s.on{background:#FEF3C7;border-color:#D97706;color:#92400E}
 .rtag{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;display:inline-block}
 .rtag.p{background:var(--ptag-bg);color:var(--ptag)}
 .rtag.c{background:var(--ctag-bg);color:var(--ctag)}
+.rtag.s{background:#FEF3C7;color:#92400E}
 
 /* LOADING / ERROR */
 .loading-card{background:#fff;border-radius:16px;padding:44px;box-shadow:var(--shadow);border:1px solid var(--border);margin-top:20px;text-align:center}
@@ -122,6 +124,7 @@ input,textarea{font-family:inherit}
 .fpill{padding:4px 11px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;font-weight:700;background:#fff;color:var(--brown-light);transition:all .15s}
 .fpill.p.on{background:var(--ptag-bg);border-color:var(--ptag);color:var(--ptag)}
 .fpill.c.on{background:var(--ctag-bg);border-color:var(--ctag);color:var(--ctag)}
+.fpill.s.on{background:#FEF3C7;border-color:#D97706;color:#92400E}
 .fdiv{width:1px;height:16px;background:var(--border)}
 .fclear{font-size:12px;color:var(--tc);background:none;border:none;font-weight:700;padding:3px 0}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:18px}
@@ -155,6 +158,7 @@ input,textarea{font-family:inherit}
 .modal-tag{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700}
 .modal-tag.p{background:rgba(249,232,228,.2);color:#F5C4BC;border:1px solid rgba(245,196,188,.3)}
 .modal-tag.c{background:rgba(232,240,228,.2);color:#B8D4B0;border:1px solid rgba(184,212,176,.3)}
+.modal-tag.s{background:rgba(254,243,199,.2);color:#FCD34D;border:1px solid rgba(252,211,77,.3)}
 .modal-x{position:absolute;top:14px;right:18px;background:rgba(255,255,255,.1);border:none;color:var(--cream);width:30px;height:30px;border-radius:50%;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .2s}
 .modal-x:hover{background:rgba(255,255,255,.2)}
 .modal-body{padding:24px 28px}
@@ -402,7 +406,7 @@ input,textarea{font-family:inherit}
         <input class="inp" id="add-title" placeholder="e.g. Chipotle Salmon with Orange Salsa">
       </div>
       <div class="tags-section">
-        <label class="lbl">Labels <span class="opt">(optional)</span></label>
+        <label class="lbl">Labels <span class="opt">(auto-detected · adjust if needed)</span></label>
         <div class="tag-group">
           <span class="tag-group-lbl">Protein</span>
           <div class="tag-pills" id="add-protein-tags"></div>
@@ -410,6 +414,10 @@ input,textarea{font-family:inherit}
         <div class="tag-group">
           <span class="tag-group-lbl">Carb</span>
           <div class="tag-pills" id="add-carb-tags"></div>
+        </div>
+        <div class="tag-group">
+          <span class="tag-group-lbl">Produce Season</span>
+          <div class="tag-pills" id="add-season-tags"></div>
         </div>
       </div>
       <button class="btn" id="add-btn" disabled>Extract & Preview →</button>
@@ -661,6 +669,7 @@ async function syncSaveChecked(c) {
 }
 const PROTEIN_TAGS = ["Egg","Beans","Fish","Poultry","Red Meat"];
 const CARB_TAGS    = ["Root","Pasta","Bread","Rice"];
+const SEASON_TAGS  = ["Spring","Summer","Fall","Winter"];
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const STORAGE_KEY  = "ek-recipes-v1";
 const PLANNER_KEY  = "ek-planner-v1";
@@ -669,9 +678,16 @@ const SHOPPING_KEY = "ek-shopping-v1";
 const SYSTEM_PROMPT = `You are a recipe extraction specialist. Extract recipes from text and return ONLY valid JSON — no markdown, no backticks, no preamble.
 
 Required structure:
-{"title":"Recipe Title","source":"source name","ingredients":[{"name":"ingredient name","amount":"quantity for 6 portions"}],"steps":["Full step with all measurements embedded inline, scaled to 6 portions"]}
+{"title":"Recipe Title","source":"source name","ingredients":[{"name":"ingredient name","amount":"quantity for 6 portions"}],"steps":["Full step with all measurements embedded inline, scaled to 6 portions"],"tags":["Poultry","Rice","Summer"]}
 
-RULES: Scale to 6 portions. Embed specific measurements in every step. If no recipe found: {"error":"No recipe found"}`;
+RULES:
+- Scale to 6 portions. Embed specific measurements in every step.
+- For "tags", auto-detect from these lists only — include only tags that clearly apply:
+  Protein: Egg, Beans, Fish, Poultry, Red Meat
+  Carb: Root, Pasta, Bread, Rice
+  Season: Spring, Summer, Fall, Winter (based on key seasonal produce — e.g. zucchini/tomatoes→Summer, squash/apples→Fall, asparagus/peas→Spring, root veg/citrus→Winter)
+- Use [] for tags if none clearly apply.
+- If no recipe found: {"error":"No recipe found"}`;
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
 function loadRecipes()   { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]"); } catch { return []; } }
@@ -726,7 +742,7 @@ function thisWeekKey() { return isoWeekKey(new Date()); }
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function fmtDate(iso) { return new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}); }
 function srcFromUrl(url) { try { return new URL(url).hostname.replace("www.",""); } catch { return url; } }
-function tagCls(t)   { return PROTEIN_TAGS.includes(t) ? "p" : "c"; }
+function tagCls(t)   { return PROTEIN_TAGS.includes(t) ? "p" : SEASON_TAGS.includes(t) ? "s" : "c"; }
 function eid(id)     { return document.getElementById(id); }
 function show(el)    { if(typeof el==="string") el=eid(el); el && el.classList.remove("hidden"); }
 function hide(el)    { if(typeof el==="string") el=eid(el); el && el.classList.add("hidden"); }
@@ -809,8 +825,12 @@ function buildTagPills(containerId, tagList, cls, selectedArr, onChange) {
     c.appendChild(b);
   });
 }
-buildTagPills("add-protein-tags", PROTEIN_TAGS, "p", addTags, null);
-buildTagPills("add-carb-tags",    CARB_TAGS,    "c", addTags, null);
+function rebuildAddTagPills() {
+  buildTagPills("add-protein-tags", PROTEIN_TAGS, "p", addTags, null);
+  buildTagPills("add-carb-tags",    CARB_TAGS,    "c", addTags, null);
+  buildTagPills("add-season-tags",  SEASON_TAGS,  "s", addTags, null);
+}
+rebuildAddTagPills();
 
 // Mode switching
 document.querySelectorAll(".itab").forEach(btn => {
@@ -997,6 +1017,10 @@ eid("add-btn").addEventListener("click", async () => {
     if (result.error) { showAddError(result.error); }
     else {
       addPreviewData = result;
+      // Apply autodetected tags (merge with any user-selected ones)
+      const allValid = [...PROTEIN_TAGS, ...CARB_TAGS, ...SEASON_TAGS];
+      (result.tags || []).forEach(t => { if (allValid.includes(t) && !addTags.includes(t)) addTags.push(t); });
+      rebuildAddTagPills();
       const url = addMode==="url" ? eid("add-url").value.trim() : (eid("add-url-extra").value.trim()||null);
       renderAddPreview(result, url, eid("add-title").value.trim());
     }
@@ -1068,8 +1092,7 @@ function resetAddForm() {
   eid("add-url").value=""; eid("add-text").value=""; eid("add-title").value="";
   if(eid("add-url-extra")) eid("add-url-extra").value="";
   addTags=[]; addImages=[]; addMode="image";
-  buildTagPills("add-protein-tags",PROTEIN_TAGS,"p",addTags,null);
-  buildTagPills("add-carb-tags",CARB_TAGS,"c",addTags,null);
+  rebuildAddTagPills();
   document.querySelectorAll(".itab").forEach(b=>b.classList.remove("on"));
   document.querySelector('.itab[data-mode="image"]').classList.add("on");
   show("input-image"); hide("input-url"); hide("input-text"); hide("add-url-optional");
@@ -1091,7 +1114,7 @@ function buildFilterBar() {
   bar.innerHTML = "";
   const lbl = document.createElement("span"); lbl.className="filter-lbl"; lbl.textContent="Filter:";
   bar.appendChild(lbl);
-  [...PROTEIN_TAGS,...CARB_TAGS].forEach(t => {
+  [...PROTEIN_TAGS,...CARB_TAGS,...SEASON_TAGS].forEach(t => {
     const b = document.createElement("button");
     b.className = "fpill " + tagCls(t) + (catFilters.includes(t)?" on":"");
     b.textContent = t;
@@ -1101,7 +1124,7 @@ function buildFilterBar() {
       renderCatalogue();
     });
     bar.appendChild(b);
-    if (t==="Red Meat") { const div=document.createElement("div"); div.className="fdiv"; bar.appendChild(div); }
+    if (t==="Red Meat" || t==="Rice") { const div=document.createElement("div"); div.className="fdiv"; bar.appendChild(div); }
   });
   if (catFilters.length>0) {
     const cl = document.createElement("button"); cl.className="fclear"; cl.textContent="Clear ✕";
