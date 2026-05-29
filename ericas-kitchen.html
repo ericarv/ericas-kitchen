@@ -183,14 +183,31 @@ input,textarea{font-family:inherit}
 .link-only-box p{font-size:14px;color:var(--brown-mid);margin-bottom:12px;line-height:1.6}
 
 /* EDIT PANEL */
-.edit-panel{background:var(--sage-pale);border-radius:12px;padding:18px;margin-bottom:18px;border:1px solid #c5d4be}
-.edit-panel h3{font-family:Georgia,serif;font-size:15px;color:var(--brown);margin-bottom:12px}
-.edit-txta{width:100%;min-height:200px;padding:13px;border:2px solid var(--border);border-radius:10px;font-size:13px;color:var(--brown);background:#fff;resize:vertical;outline:none;line-height:1.6;transition:border-color .2s}
+.edit-panel{background:var(--warm);border-radius:12px;padding:0;margin-bottom:18px;border:1px solid var(--border)}
+.edit-section{padding:16px 18px;border-bottom:1px solid var(--border)}
+.edit-section:last-child{border-bottom:none}
+.edit-section-lbl{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--brown-light);margin-bottom:10px;display:block}
+.edit-inp{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;color:var(--brown);background:#fff;outline:none;transition:border-color .2s;font-family:inherit}
+.edit-inp:focus{border-color:var(--tc)}
+.edit-ing-row{display:flex;gap:7px;margin-bottom:7px;align-items:center}
+.edit-ing-amt{width:100px;flex-shrink:0;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;color:var(--tc);font-weight:700;background:#fff;outline:none;font-family:inherit}
+.edit-ing-amt:focus{border-color:var(--tc)}
+.edit-ing-name{flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;color:var(--brown);background:#fff;outline:none;font-family:inherit}
+.edit-ing-name:focus{border-color:var(--tc)}
+.edit-rm{background:none;border:none;color:var(--brown-light);font-size:16px;line-height:1;padding:4px;cursor:pointer;flex-shrink:0;transition:color .15s}
+.edit-rm:hover{color:var(--tc)}
+.edit-step-row{display:flex;gap:7px;margin-bottom:8px;align-items:flex-start}
+.edit-step-n{width:24px;height:24px;min-width:24px;background:var(--tc);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:8px}
+.edit-step-ta{flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;color:var(--brown);background:#fff;outline:none;resize:vertical;line-height:1.5;min-height:52px;font-family:inherit}
+.edit-step-ta:focus{border-color:var(--tc)}
+.edit-add-btn{padding:7px 14px;border:1.5px dashed var(--border);border-radius:8px;background:none;color:var(--brown-light);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;margin-top:4px}
+.edit-add-btn:hover{border-color:var(--tc);color:var(--tc)}
+.edit-actions{display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--border);background:var(--cream);border-radius:0 0 12px 12px}
+.edit-save{flex:1;padding:10px;background:var(--tc);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;transition:all .2s;cursor:pointer}
+.edit-save:hover{background:var(--brown)}
+.edit-reextract{font-size:12px;color:var(--brown-light);background:none;border:none;text-decoration:underline;cursor:pointer;padding:4px}
+.edit-txta{width:100%;min-height:140px;padding:11px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;color:var(--brown);background:#fff;resize:vertical;outline:none;line-height:1.6;font-family:inherit}
 .edit-txta:focus{border-color:var(--tc)}
-.edit-actions{display:flex;gap:8px;margin-top:10px}
-.edit-save{flex:1;padding:10px;background:var(--tc);color:#fff;border:none;border-radius:9px;font-size:13px;font-weight:700;transition:all .2s}
-.edit-save:hover:not(:disabled){background:var(--brown)}
-.edit-save:disabled{opacity:.4;cursor:not-allowed}
 
 /* PLANNER */
 .plan-subhead{background:var(--brown);padding:12px 18px;margin-bottom:24px;position:relative;z-index:10}
@@ -517,12 +534,44 @@ input,textarea{font-family:inherit}
     </div>
     <div class="modal-body">
       <div id="modal-edit-panel" class="edit-panel hidden">
-        <h3>Paste recipe text to extract ingredients & steps</h3>
-        <textarea class="edit-txta" id="edit-txta" placeholder="Paste the full recipe here…"></textarea>
-        <div id="edit-error" class="err hidden"></div>
+        <!-- Title & Source -->
+        <div class="edit-section">
+          <span class="edit-section-lbl">Title</span>
+          <input class="edit-inp" id="edit-title" placeholder="Recipe title">
+        </div>
+        <div class="edit-section" style="display:flex;gap:10px;padding:12px 18px">
+          <div style="flex:1">
+            <span class="edit-section-lbl">Source</span>
+            <input class="edit-inp" id="edit-source" placeholder="e.g. NYT Cooking">
+          </div>
+          <div style="flex:1">
+            <span class="edit-section-lbl">Link</span>
+            <input class="edit-inp" id="edit-link" type="url" placeholder="https://…">
+          </div>
+        </div>
+        <!-- Ingredients -->
+        <div class="edit-section">
+          <span class="edit-section-lbl">Ingredients</span>
+          <div id="edit-ings-list"></div>
+          <button class="edit-add-btn" id="edit-add-ing">+ Add ingredient</button>
+        </div>
+        <!-- Steps -->
+        <div class="edit-section">
+          <span class="edit-section-lbl">Instructions</span>
+          <div id="edit-steps-list"></div>
+          <button class="edit-add-btn" id="edit-add-step">+ Add step</button>
+        </div>
+        <!-- Re-extract fallback -->
+        <div class="edit-section" id="edit-reextract-section" style="display:none">
+          <span class="edit-section-lbl">Re-extract from text</span>
+          <textarea class="edit-txta" id="edit-txta" placeholder="Paste full recipe text to re-extract ingredients & steps…"></textarea>
+          <div id="edit-error" class="err hidden" style="margin-top:8px"></div>
+          <button class="edit-save" id="edit-reextract-btn" style="margin-top:8px;width:100%">Extract & Replace →</button>
+        </div>
         <div class="edit-actions">
-          <button class="edit-save" id="edit-save-btn">Extract & Save →</button>
+          <button class="edit-save" id="edit-save-btn">Save Changes ✓</button>
           <button class="btn-ghost" id="edit-cancel-btn">Cancel</button>
+          <button class="edit-reextract" id="edit-reextract-toggle">Re-extract from text</button>
         </div>
       </div>
       <div id="modal-content"></div>
@@ -1207,7 +1256,6 @@ function openModal(id) {
   if (r.url) { eid("modal-link").href=r.url; show("modal-link"); } else hide("modal-link");
   eid("modal-edit-btn").textContent = (r.linkOnly||!(r.ingredients||[]).length) ? "Add recipe text" : "Edit recipe";
   hide("modal-edit-panel"); hide("edit-error");
-  eid("edit-txta").value="";
   renderModalContent(r);
   show("modal-overlay");
 }
@@ -1268,39 +1316,111 @@ eid("modal-del-btn").addEventListener("click", () => {
   showToast("Recipe removed");
 });
 
-eid("modal-edit-btn").addEventListener("click", () => {
-  show("modal-edit-panel"); editingModal=true;
-  eid("edit-txta").focus();
-});
-eid("edit-cancel-btn").addEventListener("click", () => { hide("modal-edit-panel"); editingModal=false; hide("edit-error"); });
-
-eid("edit-save-btn").addEventListener("click", async () => {
-  const text = eid("edit-txta").value.trim();
-  if (!text) return;
+function openEditPanel() {
+  const r = recipes.find(x=>x.id===currentRecipeId);
+  if (!r) return;
+  editingModal = true;
+  eid("edit-title").value = r.title||"";
+  eid("edit-source").value = r.source||"";
+  eid("edit-link").value = r.url||"";
+  eid("edit-txta").value = "";
   hide("edit-error");
-  eid("edit-save-btn").textContent="Extracting…"; eid("edit-save-btn").disabled=true;
+  hide("edit-reextract-section");
+  renderEditIngredients(r.ingredients||[]);
+  renderEditSteps(r.steps||[]);
+  show("modal-edit-panel");
+  eid("edit-title").focus();
+}
+
+function renderEditIngredients(ings) {
+  const list = eid("edit-ings-list"); list.innerHTML="";
+  ings.forEach((ing,i)=>{
+    const row=document.createElement("div"); row.className="edit-ing-row";
+    const amt=document.createElement("input"); amt.className="edit-ing-amt"; amt.value=ing.amount||""; amt.placeholder="Amount";
+    const name=document.createElement("input"); name.className="edit-ing-name"; name.value=ing.name||""; name.placeholder="Ingredient";
+    const rm=document.createElement("button"); rm.className="edit-rm"; rm.textContent="✕"; rm.title="Remove";
+    rm.addEventListener("click",()=>{ ings.splice(i,1); renderEditIngredients(ings); });
+    amt.addEventListener("input",()=>{ ings[i].amount=amt.value; });
+    name.addEventListener("input",()=>{ ings[i].name=name.value; });
+    row.appendChild(amt); row.appendChild(name); row.appendChild(rm); list.appendChild(row);
+  });
+}
+
+function renderEditSteps(steps) {
+  const list = eid("edit-steps-list"); list.innerHTML="";
+  steps.forEach((step,i)=>{
+    const row=document.createElement("div"); row.className="edit-step-row";
+    const num=document.createElement("div"); num.className="edit-step-n"; num.textContent=i+1;
+    const ta=document.createElement("textarea"); ta.className="edit-step-ta"; ta.value=step; ta.placeholder="Step "+(i+1);
+    const rm=document.createElement("button"); rm.className="edit-rm"; rm.textContent="✕"; rm.title="Remove"; rm.style.marginTop="6px";
+    ta.addEventListener("input",()=>{ steps[i]=ta.value; });
+    rm.addEventListener("click",()=>{ steps.splice(i,1); renderEditSteps(steps); });
+    row.appendChild(num); row.appendChild(ta); row.appendChild(rm); list.appendChild(row);
+  });
+}
+
+eid("modal-edit-btn").addEventListener("click", openEditPanel);
+
+eid("edit-add-ing").addEventListener("click", ()=>{
+  const r=recipes.find(x=>x.id===currentRecipeId); if(!r) return;
+  if(!r.ingredients) r.ingredients=[];
+  r.ingredients.push({amount:"",name:""});
+  renderEditIngredients(r.ingredients);
+  eid("edit-ings-list").lastElementChild?.querySelector(".edit-ing-amt")?.focus();
+});
+
+eid("edit-add-step").addEventListener("click", ()=>{
+  const r=recipes.find(x=>x.id===currentRecipeId); if(!r) return;
+  if(!r.steps) r.steps=[];
+  r.steps.push("");
+  renderEditSteps(r.steps);
+  eid("edit-steps-list").lastElementChild?.querySelector(".edit-step-ta")?.focus();
+});
+
+eid("edit-reextract-toggle").addEventListener("click", ()=>{
+  const s=eid("edit-reextract-section");
+  s.style.display = s.style.display==="none" ? "block" : "none";
+  if(s.style.display!=="none") eid("edit-txta").focus();
+});
+
+eid("edit-reextract-btn").addEventListener("click", async ()=>{
+  const text=eid("edit-txta").value.trim(); if(!text) return;
+  hide("edit-error");
+  eid("edit-reextract-btn").textContent="Extracting…"; eid("edit-reextract-btn").disabled=true;
   try {
-    const result = await parseRecipeText(text);
-    if (result.error) { eid("edit-error").textContent="⚠️ "+result.error; show("edit-error"); }
+    const result=await parseRecipeText(text);
+    if(result.error){eid("edit-error").textContent="⚠️ "+result.error;show("edit-error");}
     else {
-      const r = recipes.find(x=>x.id===currentRecipeId);
-      if (r) {
-        r.title=result.title||r.title; r.source=result.source||r.source;
+      const r=recipes.find(x=>x.id===currentRecipeId);
+      if(r){
         r.ingredients=result.ingredients||[]; r.steps=result.steps||[]; r.linkOnly=false;
-        saveRecipes(recipes); syncSaveRecipe(r); renderModalContent(r);
-        eid("modal-meta").textContent="Scaled for 6 portions · Saved "+fmtDate(r.savedAt);
-        hide("modal-edit-panel"); editingModal=false;
-        eid("edit-txta").value="";
-        showToast("✓ Recipe updated");
-        renderCatalogue();
+        if(result.title && !eid("edit-title").value.trim()) eid("edit-title").value=result.title;
+        renderEditIngredients(r.ingredients); renderEditSteps(r.steps);
+        eid("edit-reextract-section").style.display="none"; eid("edit-txta").value="";
+        showToast("✓ Extracted — review and save");
       }
     }
-  } catch(e) {
-    eid("edit-error").textContent="⚠️ "+(e.message||"Error. Check your API key.");
-    show("edit-error");
-  }
-  eid("edit-save-btn").textContent="Extract & Save →"; eid("edit-save-btn").disabled=false;
+  } catch(e){eid("edit-error").textContent="⚠️ "+(e.message||"Error");show("edit-error");}
+  eid("edit-reextract-btn").textContent="Extract & Replace →"; eid("edit-reextract-btn").disabled=false;
 });
+
+eid("edit-save-btn").addEventListener("click", ()=>{
+  const r=recipes.find(x=>x.id===currentRecipeId); if(!r) return;
+  r.title=eid("edit-title").value.trim()||r.title;
+  r.source=eid("edit-source").value.trim()||r.source;
+  r.url=eid("edit-link").value.trim()||null;
+  r.linkOnly=false;
+  saveRecipes(recipes); syncSaveRecipe(r);
+  // Refresh modal header
+  eid("modal-src").textContent=r.source||"";
+  eid("modal-title").textContent=r.title||"";
+  if(r.url){eid("modal-link").href=r.url;show("modal-link");}else hide("modal-link");
+  hide("modal-edit-panel"); editingModal=false;
+  renderModalContent(r); renderCatalogue();
+  showToast("✓ Recipe updated");
+});
+
+eid("edit-cancel-btn").addEventListener("click", ()=>{ hide("modal-edit-panel"); editingModal=false; });
 
 // ─── PLANNER ─────────────────────────────────────────────────────────────────
 eid("week-prev").addEventListener("click", () => { currentWeekKey=offsetWeek(currentWeekKey,-1); renderPlanner(); });
