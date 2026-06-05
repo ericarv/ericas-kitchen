@@ -743,7 +743,7 @@ Required structure:
 
 RULES:
 - Scale to 6 portions. Embed specific measurements in every step.
-- For ingredients: "name" = clean ingredient only (e.g. "chicken thighs", "garlic", "parsley") — no prep words, no descriptors. "amount" = quantity scaled to 6 portions + any relevant prep context (e.g. "900g, bone-in skin-on", "4 cloves, grated", "1 bunch, roughly chopped"). Keep name short and clean.
+- For ingredients: "name" = the canonical ingredient only — shortest recognizable form, no prep words, no "for dish" context, no adjectives. Examples: "cilantro" (not "cilantro leaves and stems for aji verde"), "olive oil" (not "extra virgin olive oil"), "salt" (not "kosher salt" or "salt for salsa"), "pepper" (not "white pepper" or "freshly ground black pepper"), "garlic" (not "garlic cloves, peeled"). "amount" = quantity for 6 portions + any relevant prep or variety context (e.g. "3 cloves, grated", "to taste, white", "1 bunch, roughly chopped").
 - For "tags", auto-detect from these lists only — include only tags that clearly apply:
   Protein: Egg, Beans, Fish, Poultry, Red Meat
   Carb: Root, Pasta, Bread, Rice
@@ -1133,7 +1133,7 @@ function renderAddPreview(data, url) {
   const ig = eid("preview-ings"); ig.innerHTML = "";
   (data.ingredients||[]).forEach(ing => {
     const d=document.createElement("div"); d.className="ing-pill";
-    d.innerHTML=`<span class="ing-name">${ing.name}</span><span class="ing-amt">${ing.amount}</span>`; ig.appendChild(d);
+    d.innerHTML=`<span class="ing-name">${normalizeIngName(ing.name)}</span><span class="ing-amt">${ing.amount}</span>`; ig.appendChild(d);
   });
   const sl = eid("preview-steps"); sl.innerHTML = "";
   (data.steps||[]).forEach((step,i) => {
@@ -1297,7 +1297,7 @@ function renderModalContent(r) {
     mc.innerHTML = `<div class="modal-sec"><div class="link-only-box">${r.url?`<p>Saved as a link. Open the recipe and use <strong>Edit recipe</strong> below to add ingredients and steps.</p><a class="modal-link" href="${r.url}" target="_blank" rel="noopener">Open recipe ↗</a>`:`<p>No recipe text yet. Tap <strong>Edit recipe</strong> to add ingredients and steps.</p>`}</div></div>`;
     return;
   }
-  const ings = (r.ingredients||[]).map(i=>`<div class="ming"><div class="ming-dot"></div><div style="flex:1"><span class="ming-name">${i.name}</span>${i.amount?`<span class="ming-amt">${i.amount}</span>`:""}</div></div>`).join("");
+  const ings = (r.ingredients||[]).map(i=>`<div class="ming"><div class="ming-dot"></div><div style="flex:1"><span class="ming-name">${normalizeIngName(i.name)}</span>${i.amount?`<span class="ming-amt">${i.amount}</span>`:""}</div></div>`).join("");
   const steps = (r.steps||[]).map((s,i)=>`<li class="mstep"><div class="mstep-n">${i+1}</div><div class="mstep-t">${s}</div></li>`).join("");
   mc.innerHTML = `<div class="modal-sec"><div class="sec-lbl">Ingredients</div><div class="modal-ings">${ings}</div></div><div class="modal-sec"><div class="sec-lbl">Instructions</div><ul class="modal-steps">${steps}</ul></div>`;
 }
@@ -1628,6 +1628,60 @@ function renderVarietyTable() {
   div.innerHTML=html; wrap.appendChild(div);
 }
 
+// ─── INGREDIENT NAME NORMALISATION ───────────────────────────────────────────
+const ING_ALIASES = {
+  // oils
+  "extra virgin olive oil":"olive oil","extra-virgin olive oil":"olive oil","evoo":"olive oil",
+  "vegetable oil":"oil","canola oil":"oil","neutral oil":"oil","avocado oil":"oil","sunflower oil":"oil",
+  // salts
+  "kosher salt":"salt","sea salt":"salt","flaky salt":"salt","fine salt":"salt","table salt":"salt",
+  "coarse salt":"salt","maldon salt":"salt","himalayan salt":"salt",
+  // peppers / spice
+  "white pepper":"pepper","black pepper":"pepper","freshly ground pepper":"pepper",
+  "freshly ground black pepper":"pepper","cracked pepper":"pepper","red pepper flakes":"chilli flakes",
+  // herbs — stems / leaves variants
+  "cilantro leaves":"cilantro","cilantro leaves and stems":"cilantro","fresh cilantro":"cilantro",
+  "flat-leaf parsley":"parsley","flat leaf parsley":"parsley","fresh parsley":"parsley",
+  "fresh basil":"basil","fresh mint":"mint","fresh dill":"dill","fresh thyme":"thyme",
+  "fresh rosemary":"rosemary","fresh chives":"chives",
+  // garlic
+  "garlic cloves":"garlic","garlic clove":"garlic","cloves of garlic":"garlic",
+  // onions
+  "yellow onion":"onion","white onion":"onion","brown onion":"onion","red onion":"onion",
+  // stock
+  "chicken stock":"stock","beef stock":"stock","vegetable stock":"stock",
+  "chicken broth":"stock","beef broth":"stock","vegetable broth":"stock",
+  // misc
+  "scallion":"scallions","spring onion":"scallions","spring onions":"scallions",
+  "lemon juice":"lemon","lime juice":"lime","heavy cream":"cream","double cream":"cream",
+  "unsalted butter":"butter","salted butter":"butter",
+};
+const ING_STRIP_WORDS = new Set([
+  "fresh","dried","frozen","canned","chopped","diced","minced","sliced","grated","shredded",
+  "crushed","peeled","whole","ground","toasted","roasted","raw","cooked","large","small",
+  "medium","extra","virgin","kosher","fine","flaky","organic","thinly","roughly","finely",
+  "halved","quartered","julienned","rinsed","drained","trimmed"
+]);
+
+function normalizeIngName(raw) {
+  if (!raw) return raw;
+  let s = raw.toLowerCase().trim();
+  // Direct alias lookup
+  if (ING_ALIASES[s]) return ING_ALIASES[s];
+  // Strip "for X" suffix
+  s = s.replace(/\s+for\s+.+$/, "");
+  // Strip parenthetical
+  s = s.replace(/\s*\(.*?\)/, "").trim();
+  // Strip comma-and-after
+  s = s.replace(/,.*$/, "").trim();
+  // Check alias again after stripping
+  if (ING_ALIASES[s]) return ING_ALIASES[s];
+  // Strip leading/trailing modifier words
+  const words = s.split(/\s+/).filter(w => !ING_STRIP_WORDS.has(w));
+  s = (words.join(" ") || s).trim();
+  return ING_ALIASES[s] || s;
+}
+
 // ─── SHOPPING LIST ────────────────────────────────────────────────────────────
 const SHOP_CATS = {
   "Produce":["tomato","tomatoes","onion","onions","garlic","lemon","lime","orange","pepper","peppers","jalapeño","cilantro","parsley","dill","mint","basil","thyme","rosemary","cabbage","lettuce","spinach","kale","arugula","cucumber","zucchini","eggplant","carrot","carrots","celery","radish","avocado","ginger","scallion","shallot","chili","snap peas","green beans","peas","corn","asparagus","broccoli","cauliflower","mushroom","mushrooms","potato","potatoes","sweet potato","fennel","beet","pomegranate","mango"],
@@ -1668,7 +1722,7 @@ function combineAmts(amts){
   return parts.join(" + ")||amts.map(a=>a.unit?`${fmtQ(a.qty)} ${a.unit}`:fmtQ(a.qty)).join(" + ");
 }
 function categorizeing(name){
-  const n=name.toLowerCase();
+  const n=normalizeIngName(name);
   for(const[cat,kws]of Object.entries(SHOP_CATS)){if(cat==="Other")continue;if(kws.some(k=>n.includes(k)))return cat;}
   return "Other";
 }
@@ -1687,8 +1741,8 @@ function buildShoppingList(){
         (meal.recipeIds||[]).forEach(rid=>{
           const r=recById[rid]; if(!r||!r.ingredients) return;
           r.ingredients.forEach(ing=>{
-            const key=ing.name.toLowerCase().trim();
-            if(!ingMap[key]) ingMap[key]={name:ing.name,amounts:[],sources:[]};
+            const key=normalizeIngName(ing.name);
+            if(!ingMap[key]) ingMap[key]={name:key,amounts:[],sources:[]};
             const p=parseAmt(ing.amount); if(p) ingMap[key].amounts.push(p);
             if(!ingMap[key].sources.includes(r.title)) ingMap[key].sources.push(r.title);
           });
