@@ -1657,26 +1657,32 @@ const ING_ALIASES = {
   "unsalted butter":"butter","salted butter":"butter",
 };
 const ING_STRIP_WORDS = new Set([
-  "fresh","dried","frozen","canned","chopped","diced","minced","sliced","grated","shredded",
-  "crushed","peeled","whole","ground","toasted","roasted","raw","cooked","large","small",
-  "medium","extra","virgin","kosher","fine","flaky","organic","thinly","roughly","finely",
-  "halved","quartered","julienned","rinsed","drained","trimmed"
+  // descriptors
+  "fresh","dried","frozen","canned","organic","whole","large","small","medium","extra","virgin",
+  "kosher","fine","flaky","coarse",
+  // prep actions
+  "chopped","diced","minced","sliced","grated","shredded","crushed","peeled","trimmed",
+  "halved","quartered","julienned","rinsed","drained","roasted","toasted","raw","cooked",
+  // adverbs
+  "thinly","roughly","finely","coarsely","lightly","freshly","loosely",
+  // cut shapes
+  "rounds","slices","wedges","chunks","pieces","strips","cubes","rings","matchsticks","florets",
 ]);
 
 function normalizeIngName(raw) {
   if (!raw) return raw;
   let s = raw.toLowerCase().trim();
-  // Direct alias lookup
   if (ING_ALIASES[s]) return ING_ALIASES[s];
-  // Strip "for X" suffix
+  // Strip "for X dish" suffix
   s = s.replace(/\s+for\s+.+$/, "");
+  // Strip "into X" cut description (e.g. "lemons into rounds", "onion into wedges")
+  s = s.replace(/,?\s*(cut|sliced|torn|broken|divided)?\s*into\s+.+$/, "");
   // Strip parenthetical
-  s = s.replace(/\s*\(.*?\)/, "").trim();
-  // Strip comma-and-after
+  s = s.replace(/\s*\(.*?\)/g, "").trim();
+  // Strip comma-and-after prep context
   s = s.replace(/,.*$/, "").trim();
-  // Check alias again after stripping
   if (ING_ALIASES[s]) return ING_ALIASES[s];
-  // Strip leading/trailing modifier words
+  // Strip modifier/action/cut words
   const words = s.split(/\s+/).filter(w => !ING_STRIP_WORDS.has(w));
   s = (words.join(" ") || s).trim();
   return ING_ALIASES[s] || s;
