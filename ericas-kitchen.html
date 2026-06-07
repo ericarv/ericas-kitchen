@@ -871,8 +871,10 @@ const DEFAULT_RULES  = `1. Select recipes in the correct produce season (match S
 2. Across the week the selected recipes should collectively include at least 30 different plant types (fruits, vegetables, herbs, and spices count).
 3. Recipes planned for Monday–Thursday should not take longer than 1 hour to prep and cook.
 4. Prioritise using any freezer items that were added more than 3 months ago.
-5. Vary protein sources — avoid the same protein two days in a row.
-6. Include at least one vegetarian meal per week.`;
+5. Distribute evenly across the variety table (Protein × Carb combinations) — spread meals across as many different Protein/Carb pairings as possible.
+6. Hard limit: no more than 2 of the same recipe in a single week.
+7. Vary protein sources — avoid the same protein two days in a row.
+8. Include at least one vegetarian meal per week.`;
 function loadRecipes()   { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]"); } catch { return []; } }
 function saveRecipes(r)  { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(r)); } catch {} }
 function loadPlanner()   { try { return JSON.parse(localStorage.getItem(PLANNER_KEY)||"{}"); } catch { return {}; } }
@@ -1660,7 +1662,7 @@ async function generateMealPlan() {
       title: r.title,
       tags: r.tags||[],
       proteins: (r.tags||[]).filter(t=>PROTEIN_TAGS.includes(t)),
-      carbs: (r.tags||[]).filter(t=>CARB_TAGS.includes(t)),
+      carbs:    (r.tags||[]).filter(t=>CARB_TAGS.includes(t)),
       season: (r.tags||[]).find(t=>SEASON_TAGS.includes(t))||"All",
       plants: [...new Set((r.ingredients||[]).map(i=>normalizeIngName(i.name)).filter(n=>
         categorizeing(n)==="Produce" || ["herbs","spices","nuts"].some(k=>n.includes(k))
@@ -1669,6 +1671,11 @@ async function generateMealPlan() {
 
     const feedbackStr = feedback.length ? `\nRECENT EDITS (learn from these):\n${feedback.slice(-10).map(f=>`- Removed "${f.removed}" from ${f.day}, replaced with "${f.added||"nothing"}"`).join("\n")}` : "";
     const freezerStr = oldFreezer.length ? `\nFREEZER ITEMS TO USE (>3 months old):\n${oldFreezer.map(f=>`- ${f.name} (${f.amount})`).join("\n")}` : "";
+
+    // Build variety table coverage from recipe list
+    const proteinList = PROTEIN_TAGS.join(", ");
+    const carbList = CARB_TAGS.join(", ");
+    const recipeVariety = recipeList.map(r => `${r.id} | ${r.title} | ${r.season} | P:${r.proteins.join("+")||"none"} C:${r.carbs?.join("+")||"none"} | plants: ${r.plants.slice(0,6).join(", ")}${r.plants.length>6?` +${r.plants.length-6} more`:""}`).join("\n");
 
     const prompt = `You are a meal planner. Select the best recipes for each dinner this week.
 
@@ -1681,8 +1688,18 @@ ${rules}
 ${feedbackStr}
 ${freezerStr}
 
-AVAILABLE RECIPES (id | title | season | proteins | plants):
-${recipeList.map(r=>`${r.id} | ${r.title} | ${r.season} | ${r.proteins.join(",")||"—"} | ${r.plants.slice(0,6).join(", ")}${r.plants.length>6?` +${r.plants.length-6} more`:""}`).join("\n")}
+VARIETY TABLE (Protein × Carb grid):
+Proteins: ${proteinList}
+Carbs: ${carbList}
+Goal: spread selected recipes across as many DIFFERENT Protein+Carb combinations as possible. For example, if Monday = Poultry+Rice, Tuesday should ideally be a different combination like Fish+Pasta or Red Meat+Root. Fill the grid broadly rather than repeating the same cell.
+
+HARD LIMITS (non-negotiable):
+- Maximum 2 uses of the same recipe ID in one week
+- No-cook days must have null (no recipe)
+- Only use recipe IDs from the list below
+
+AVAILABLE RECIPES (id | title | season | protein+carb | plants):
+${recipeVariety}
 
 Return ONLY valid JSON — no markdown, no explanation outside the JSON:
 {
@@ -1695,11 +1712,12 @@ Return ONLY valid JSON — no markdown, no explanation outside the JSON:
     "Saturday": ["recipeId"],
     "Sunday": ["recipeId"]
   },
+  "variety_coverage": "e.g. Poultry+Rice, Fish+None, RedMeat+Root, ...",
   "plant_count": 28,
   "notes": "One sentence summary of the plan"
 }
 
-Rules: null = no-cook day. Each day gets 1 recipe. Only use IDs from the list above.`;
+Each day gets exactly 1 recipe. Only use IDs from the list above.`;
 
     const data = await callClaude({ model:"claude-sonnet-4-5", max_tokens:1000, messages:[{role:"user",content:prompt}] });
     const raw = data.content?.find(b=>b.type==="text")?.text||"";
@@ -1723,7 +1741,8 @@ Rules: null = no-cook day. Each day gets 1 recipe. Only use IDs from the list ab
     // Show notes
     if (result.notes) {
       eid("rules-txta").value = loadRules();
-      eid("gen-notes").textContent = `✓ Plan generated — ${result.notes} (${result.plant_count||"?"} plant types across the week)`;
+      const varStr = result.variety_coverage ? ` · Variety: ${result.variety_coverage}` : "";
+      eid("gen-notes").textContent = `✓ ${result.notes} · ${result.plant_count||"?"} plant types${varStr}`;
       show("gen-notes");
       eid("rules-overlay").classList.remove("hidden");
     }
