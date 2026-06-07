@@ -1751,7 +1751,7 @@ Each day gets exactly 1 recipe. Only use IDs from the list above.`;
     showToast("⚠️ " + (e.message||"Generation failed"));
   }
   btn.disabled = false;
-  btn.innerHTML = `✨ Generate`;
+  renderPlanner(); // restores week-aware label
 }
 
 eid("gen-btn").addEventListener("click", generateMealPlan);
@@ -1856,6 +1856,13 @@ function renderPlanner() {
   eid("week-label").textContent = (isToday?"This week · ":"")+weekLabel(currentWeekKey);
   eid("week-label").className = "week-lbl"+(isToday?" cur":"");
   isToday ? hide("today-btn") : show("today-btn");
+  // Update generate button to reflect current week
+  const genBtn = eid("gen-btn");
+  if (genBtn && !genBtn.disabled) {
+    const mon = mondayOfWeek(currentWeekKey);
+    const label = isToday ? "This week" : mon.toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"});
+    genBtn.innerHTML = `✨ Generate · ${label}`;
+  }
 
   const weekPlan = planner[currentWeekKey] || {};
   const mon = mondayOfWeek(currentWeekKey);
