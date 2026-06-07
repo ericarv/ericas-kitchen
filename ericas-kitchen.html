@@ -1144,7 +1144,7 @@ function renderAddPreview(data, url) {
   const ig = eid("preview-ings"); ig.innerHTML = "";
   (data.ingredients||[]).forEach(ing => {
     const d=document.createElement("div"); d.className="ing-pill";
-    d.innerHTML=`<span class="ing-name">${normalizeIngName(ing.name)}</span><span class="ing-amt">${ing.amount}</span>`; ig.appendChild(d);
+    d.innerHTML=`<span class="ing-name">${normalizeIngName(ing.name)}</span><span class="ing-amt">${cleanAmt(ing.amount)}</span>`; ig.appendChild(d);
   });
   const sl = eid("preview-steps"); sl.innerHTML = "";
   (data.steps||[]).forEach((step,i) => {
@@ -1308,7 +1308,7 @@ function renderModalContent(r) {
     mc.innerHTML = `<div class="modal-sec"><div class="link-only-box">${r.url?`<p>Saved as a link. Open the recipe and use <strong>Edit recipe</strong> below to add ingredients and steps.</p><a class="modal-link" href="${r.url}" target="_blank" rel="noopener">Open recipe ↗</a>`:`<p>No recipe text yet. Tap <strong>Edit recipe</strong> to add ingredients and steps.</p>`}</div></div>`;
     return;
   }
-  const ings = (r.ingredients||[]).map(i=>`<div class="ming"><div class="ming-dot"></div><div style="flex:1"><span class="ming-name">${normalizeIngName(i.name)}</span>${i.amount?`<span class="ming-amt">${i.amount}</span>`:""}</div></div>`).join("");
+  const ings = (r.ingredients||[]).map(i=>`<div class="ming"><div class="ming-dot"></div><div style="flex:1"><span class="ming-name">${normalizeIngName(i.name)}</span>${i.amount?`<span class="ming-amt">${cleanAmt(i.amount)}</span>`:""}</div></div>`).join("");
   const steps = (r.steps||[]).map((s,i)=>`<li class="mstep"><div class="mstep-n">${i+1}</div><div class="mstep-t">${s}</div></li>`).join("");
   mc.innerHTML = `<div class="modal-sec"><div class="sec-lbl">Ingredients</div><div class="modal-ings">${ings}</div></div><div class="modal-sec"><div class="sec-lbl">Instructions</div><ul class="modal-steps">${steps}</ul></div>`;
 }
@@ -1677,6 +1677,16 @@ function renderPickerList() {
     });
     list.appendChild(item);
   });
+}
+
+// Strip prep context from amount for display (keeps qty + unit only)
+function cleanAmt(s) {
+  if (!s) return s;
+  // Strip comma-and-after prep context: "6, sliced into rounds" → "6"
+  let c = s.replace(/,.*$/, "").trim();
+  // Strip trailing action phrase: "6 sliced into rounds" → "6"
+  c = c.replace(/\s+(sliced|diced|chopped|grated|minced|peeled|halved|quartered|trimmed|rinsed|roasted|toasted|into\s+\S+.*)$/i, "").trim();
+  return c || s;
 }
 
 // ─── VARIETY TABLE ────────────────────────────────────────────────────────────
