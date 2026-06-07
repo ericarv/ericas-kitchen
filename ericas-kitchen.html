@@ -226,6 +226,25 @@ input,textarea{font-family:inherit}
 .edit-txta{width:100%;min-height:140px;padding:11px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;color:var(--brown);background:#fff;resize:vertical;outline:none;line-height:1.6;font-family:inherit}
 .edit-txta:focus{border-color:var(--tc)}
 
+/* AUTO-GENERATE */
+.gen-btn{padding:7px 16px;background:var(--tc);color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;transition:opacity .18s}
+.gen-btn:hover:not(:disabled){opacity:.85}
+.gen-btn:disabled{opacity:.4;cursor:not-allowed}
+.gen-btn .spin-sm{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+.no-cook-btn{padding:3px 10px;border-radius:12px;border:1.5px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.55);font-size:10px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.no-cook-btn.on{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.4)}
+.day-card.no-cook{opacity:.55}
+.day-card.no-cook .day-head{background:var(--label3)}
+.no-cook-banner{text-align:center;padding:18px 0;color:var(--label3);font-size:13px;font-style:italic}
+.rules-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:flex;align-items:flex-end;justify-content:center}
+.rules-sheet{background:var(--bg-card);border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 -8px 40px rgba(0,0,0,.2)}
+.rules-head{padding:18px 20px 14px;border-bottom:1px solid var(--sep);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+.rules-head h3{font-size:17px;font-weight:700;color:var(--label);letter-spacing:-.2px}
+.rules-body{padding:16px 20px;overflow-y:auto;flex:1}
+.rules-txta{width:100%;min-height:220px;padding:12px 14px;border:none;border-radius:12px;font-size:14px;color:var(--label);background:var(--bg-fill);outline:none;line-height:1.7;resize:vertical;font-family:inherit}
+.rules-txta:focus{box-shadow:0 0 0 3px rgba(196,98,58,.2)}
+.gen-notes{background:var(--bg-fill);border-radius:12px;padding:14px 16px;margin-top:16px;font-size:13px;color:var(--label2);line-height:1.6}
+
 /* LUNCH MEAL PREP */
 .lmp-card{background:#fff;border-radius:14px;box-shadow:var(--shadow);border:2px solid var(--sage);margin-bottom:18px;overflow:hidden}
 .lmp-head{background:var(--sage);padding:11px 16px;display:flex;align-items:center;justify-content:space-between}
@@ -534,10 +553,14 @@ input,textarea{font-family:inherit}
       <span class="week-lbl" id="week-label"></span>
       <button class="week-btn" id="week-next">›</button>
       <button class="today-btn hidden" id="today-btn">Today</button>
+      <button class="gen-btn" id="gen-btn" title="Auto-generate meal plan">✨ Generate</button>
     </div>
-    <div class="view-toggle">
-      <button class="vtab on" data-pview="days">Days</button>
-      <button class="vtab" data-pview="table">Variety</button>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="view-toggle">
+        <button class="vtab on" data-pview="days">Days</button>
+        <button class="vtab" data-pview="table">Variety</button>
+      </div>
+      <button style="background:none;border:none;color:rgba(255,255,255,.5);font-size:12px;cursor:pointer;padding:4px 0" id="rules-btn">Edit rules ›</button>
     </div>
   </div>
   <div class="wrap-wide" id="planner-days"></div>
@@ -693,6 +716,25 @@ input,textarea{font-family:inherit}
   </div>
 </div>
 
+<!-- RULES SHEET -->
+<div class="rules-overlay hidden" id="rules-overlay">
+  <div class="rules-sheet">
+    <div class="rules-head">
+      <h3>Meal Plan Rules</h3>
+      <button style="background:none;border:none;color:var(--label2);font-size:22px;cursor:pointer" id="rules-close">✕</button>
+    </div>
+    <div class="rules-body">
+      <p style="font-size:13px;color:var(--label2);margin-bottom:12px;line-height:1.6">Claude uses these rules every time it generates a week. Edit freely — changes apply on the next generate.</p>
+      <textarea class="rules-txta" id="rules-txta"></textarea>
+      <div id="gen-notes" class="gen-notes hidden"></div>
+    </div>
+    <div style="padding:14px 20px;border-top:1px solid var(--sep);display:flex;gap:10px">
+      <button class="btn" style="margin-top:0;flex:1;padding:12px" id="rules-save-btn">Save Rules</button>
+      <button class="btn-ghost" style="padding:12px 18px" id="rules-cancel-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 // Keys stored in localStorage
@@ -822,7 +864,15 @@ RULES:
 - If no recipe found: {"error":"No recipe found"}`;
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
-const FREEZER_KEY = "ek-freezer-v1";
+const FREEZER_KEY    = "ek-freezer-v1";
+const RULES_KEY      = "ek-rules-v1";
+const FEEDBACK_KEY   = "ek-plan-feedback-v1";
+const DEFAULT_RULES  = `1. Select recipes in the correct produce season (match Summer/Fall/Spring/Winter tag to current season; "All" or untagged recipes are always OK).
+2. Across the week the selected recipes should collectively include at least 30 different plant types (fruits, vegetables, herbs, and spices count).
+3. Recipes planned for Monday–Thursday should not take longer than 1 hour to prep and cook.
+4. Prioritise using any freezer items that were added more than 3 months ago.
+5. Vary protein sources — avoid the same protein two days in a row.
+6. Include at least one vegetarian meal per week.`;
 function loadRecipes()   { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]"); } catch { return []; } }
 function saveRecipes(r)  { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(r)); } catch {} }
 function loadPlanner()   { try { return JSON.parse(localStorage.getItem(PLANNER_KEY)||"{}"); } catch { return {}; } }
@@ -831,6 +881,10 @@ function loadChecked()   { try { return JSON.parse(localStorage.getItem(SHOPPING
 function saveChecked(c)  { try { localStorage.setItem(SHOPPING_KEY, JSON.stringify(c)); } catch {} }
 function loadFreezer()   { try { return JSON.parse(localStorage.getItem(FREEZER_KEY)||"[]"); } catch { return []; } }
 function saveFreezer(f)  { try { localStorage.setItem(FREEZER_KEY, JSON.stringify(f)); } catch {} }
+function loadRules()     { return localStorage.getItem(RULES_KEY) || DEFAULT_RULES; }
+function saveRules(r)    { localStorage.setItem(RULES_KEY, r); }
+function loadFeedback()  { try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY)||"[]"); } catch { return []; } }
+function saveFeedback(f) { try { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(f.slice(-40))); } catch {} } // keep last 40
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let recipes   = loadRecipes();   // overwritten after async sync
@@ -1543,6 +1597,154 @@ eid("edit-cancel-btn").addEventListener("click", ()=>{
   hide("modal-edit-panel"); editingModal=false; show("modal-content");
 });
 
+// ─── RULES SHEET ─────────────────────────────────────────────────────────────
+eid("rules-btn").addEventListener("click", () => {
+  eid("rules-txta").value = loadRules();
+  hide("gen-notes");
+  eid("rules-overlay").classList.remove("hidden");
+});
+eid("rules-close").addEventListener("click",  () => eid("rules-overlay").classList.add("hidden"));
+eid("rules-cancel-btn").addEventListener("click", () => eid("rules-overlay").classList.add("hidden"));
+eid("rules-save-btn").addEventListener("click", () => {
+  saveRules(eid("rules-txta").value.trim() || DEFAULT_RULES);
+  eid("rules-overlay").classList.add("hidden");
+  showToast("✓ Rules saved");
+});
+
+// ─── MEAL PLAN GENERATOR ─────────────────────────────────────────────────────
+function currentSeason() {
+  const m = new Date().getMonth(); // 0-based
+  if (m >= 2 && m <= 4) return "Spring";
+  if (m >= 5 && m <= 7) return "Summer";
+  if (m >= 8 && m <= 10) return "Fall";
+  return "Winter";
+}
+
+function getNoCookDays() {
+  return (planner[currentWeekKey]||{})["_noCook"] || [];
+}
+
+function setNoCookDay(day, noCook) {
+  if (!planner[currentWeekKey]) planner[currentWeekKey] = {};
+  const nc = getNoCookDays();
+  const idx = nc.indexOf(day);
+  if (noCook && idx < 0) nc.push(day);
+  if (!noCook && idx >= 0) nc.splice(idx, 1);
+  planner[currentWeekKey]["_noCook"] = nc;
+  savePlanner(planner);
+  syncSavePlannerWeek(currentWeekKey, planner[currentWeekKey]);
+}
+
+async function generateMealPlan() {
+  if (!getApiKey()) { showSetup(); return; }
+  const btn = eid("gen-btn");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spin-sm"></span> Generating…`;
+
+  try {
+    const season = currentSeason();
+    const noCook = getNoCookDays();
+    const rules = loadRules();
+    const feedback = loadFeedback();
+    const now = new Date();
+
+    // Freezer items older than 3 months
+    const oldFreezer = freezer.filter(f => {
+      if (!f.addedAt) return false;
+      return (now - new Date(f.addedAt)) > 90 * 24 * 3600 * 1000;
+    });
+
+    // Build compact recipe list
+    const recipeList = recipes.filter(r => !r.linkOnly && r.ingredients?.length).map(r => ({
+      id: r.id,
+      title: r.title,
+      tags: r.tags||[],
+      proteins: (r.tags||[]).filter(t=>PROTEIN_TAGS.includes(t)),
+      carbs: (r.tags||[]).filter(t=>CARB_TAGS.includes(t)),
+      season: (r.tags||[]).find(t=>SEASON_TAGS.includes(t))||"All",
+      plants: [...new Set((r.ingredients||[]).map(i=>normalizeIngName(i.name)).filter(n=>
+        categorizeing(n)==="Produce" || ["herbs","spices","nuts"].some(k=>n.includes(k))
+      ))],
+    }));
+
+    const feedbackStr = feedback.length ? `\nRECENT EDITS (learn from these):\n${feedback.slice(-10).map(f=>`- Removed "${f.removed}" from ${f.day}, replaced with "${f.added||"nothing"}"`).join("\n")}` : "";
+    const freezerStr = oldFreezer.length ? `\nFREEZER ITEMS TO USE (>3 months old):\n${oldFreezer.map(f=>`- ${f.name} (${f.amount})`).join("\n")}` : "";
+
+    const prompt = `You are a meal planner. Select the best recipes for each dinner this week.
+
+WEEK: ${weekLabel(currentWeekKey)}
+CURRENT SEASON: ${season}
+NO-COOK DAYS: ${noCook.length ? noCook.join(", ") : "none"}
+
+RULES:
+${rules}
+${feedbackStr}
+${freezerStr}
+
+AVAILABLE RECIPES (id | title | season | proteins | plants):
+${recipeList.map(r=>`${r.id} | ${r.title} | ${r.season} | ${r.proteins.join(",")||"—"} | ${r.plants.slice(0,6).join(", ")}${r.plants.length>6?` +${r.plants.length-6} more`:""}`).join("\n")}
+
+Return ONLY valid JSON — no markdown, no explanation outside the JSON:
+{
+  "plan": {
+    "Monday": ["recipeId"],
+    "Tuesday": ["recipeId"],
+    "Wednesday": null,
+    "Thursday": ["recipeId"],
+    "Friday": ["recipeId"],
+    "Saturday": ["recipeId"],
+    "Sunday": ["recipeId"]
+  },
+  "plant_count": 28,
+  "notes": "One sentence summary of the plan"
+}
+
+Rules: null = no-cook day. Each day gets 1 recipe. Only use IDs from the list above.`;
+
+    const data = await callClaude({ model:"claude-sonnet-4-5", max_tokens:1000, messages:[{role:"user",content:prompt}] });
+    const raw = data.content?.find(b=>b.type==="text")?.text||"";
+    const match = raw.replace(/```json\s*/g,"").replace(/```\s*/g,"").match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("Could not parse response");
+    const result = JSON.parse(match[0]);
+
+    // Apply plan to planner
+    if (!planner[currentWeekKey]) planner[currentWeekKey] = {};
+    DAYS.forEach(day => {
+      const ids = result.plan?.[day];
+      if (ids && ids.length) {
+        planner[currentWeekKey][day] = [{id:Date.now()+Math.random(), recipeIds: ids.filter(id=>recipes.find(r=>r.id===id))}];
+      } else if (ids === null) {
+        planner[currentWeekKey][day] = []; // no-cook
+      }
+    });
+    savePlanner(planner); syncSavePlannerWeek(currentWeekKey, planner[currentWeekKey]);
+    renderPlanner();
+
+    // Show notes
+    if (result.notes) {
+      eid("rules-txta").value = loadRules();
+      eid("gen-notes").textContent = `✓ Plan generated — ${result.notes} (${result.plant_count||"?"} plant types across the week)`;
+      show("gen-notes");
+      eid("rules-overlay").classList.remove("hidden");
+    }
+    showToast("✨ Meal plan generated");
+  } catch(e) {
+    showToast("⚠️ " + (e.message||"Generation failed"));
+  }
+  btn.disabled = false;
+  btn.innerHTML = `✨ Generate`;
+}
+
+eid("gen-btn").addEventListener("click", generateMealPlan);
+
+// Track when user removes a recipe from a generated plan (learning)
+function trackRemoval(day, recipeId) {
+  const feedback = loadFeedback();
+  const r = recipes.find(x=>x.id===recipeId);
+  feedback.push({ day, removed: r?.title||recipeId, added: null, week: currentWeekKey, at: new Date().toISOString() });
+  saveFeedback(feedback);
+}
+
 // ─── PLANNER ─────────────────────────────────────────────────────────────────
 eid("week-prev").addEventListener("click", () => { currentWeekKey=offsetWeek(currentWeekKey,-1); renderPlanner(); });
 eid("week-next").addEventListener("click", () => { currentWeekKey=offsetWeek(currentWeekKey,+1); renderPlanner(); });
@@ -1641,19 +1843,29 @@ function renderPlanner() {
   renderLunchMealPrep(dayGrid);
   const grid = document.createElement("div"); grid.className="day-grid";
 
+  const noCookDays = getNoCookDays();
   DAYS.forEach((day,i) => {
     const dayDate = new Date(mon); dayDate.setUTCDate(mon.getUTCDate()+i);
     const dateLbl = dayDate.toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"});
     const meals = weekPlan[day] || [];
-    const card = document.createElement("div"); card.className="day-card";
+    const isNoCook = noCookDays.includes(day);
+    const card = document.createElement("div"); card.className="day-card"+(isNoCook?" no-cook":"");
     const head = document.createElement("div"); head.className="day-head";
     head.innerHTML=`<div><div class="day-name serif">${day}</div><div class="day-date-lbl">${dateLbl}</div></div>`;
+    const headRight = document.createElement("div"); headRight.style.cssText="display:flex;align-items:center;gap:6px";
+    const ncBtn = document.createElement("button"); ncBtn.className="no-cook-btn"+(isNoCook?" on":""); ncBtn.textContent=isNoCook?"🚫 No cooking":"No cooking";
+    ncBtn.addEventListener("click",()=>{ setNoCookDay(day,!isNoCook); renderPlanner(); });
     const addBtn = document.createElement("button"); addBtn.className="day-add"; addBtn.textContent="+";
     addBtn.addEventListener("click",()=>addMeal(day));
-    head.appendChild(addBtn); card.appendChild(head);
+    if (!isNoCook) headRight.appendChild(addBtn);
+    headRight.appendChild(ncBtn);
+    head.appendChild(headRight); card.appendChild(head);
 
     const mealsDiv = document.createElement("div"); mealsDiv.className="day-meals";
-    if (!meals.length) {
+    if (isNoCook) {
+      const banner=document.createElement("div"); banner.className="no-cook-banner"; banner.textContent="🚫 No cooking today";
+      mealsDiv.appendChild(banner);
+    } else if (!meals.length) {
       const empty=document.createElement("div"); empty.className="day-empty"; empty.textContent="No meals planned";
       mealsDiv.appendChild(empty);
       const addMealBtn=document.createElement("button"); addMealBtn.className="add-meal-btn"; addMealBtn.textContent="+ Add meal";
@@ -1675,7 +1887,7 @@ function renderPlanner() {
           const tagsDiv=document.createElement("div"); tagsDiv.className="meal-rec-tags";
           (r.tags||[]).forEach(t=>{const s=document.createElement("span");s.className="rtag "+tagCls(t);s.style.fontSize="10px";s.style.padding="2px 6px";s.textContent=t;tagsDiv.appendChild(s);});
           const rx=document.createElement("button"); rx.className="meal-x"; rx.style.marginLeft="4px"; rx.textContent="✕";
-          rx.addEventListener("click",()=>removeRecipeFromMeal(day,mi,rid));
+          rx.addEventListener("click",()=>{ trackRemoval(day,rid); removeRecipeFromMeal(day,mi,rid); });
           row.appendChild(titleSpan); row.appendChild(tagsDiv); row.appendChild(rx);
           recs.appendChild(row);
         });
@@ -2081,7 +2293,7 @@ eid("freezer-add-btn").addEventListener("click", () => {
   const name = eid("freezer-name").value.trim();
   if (!name) { eid("freezer-name").focus(); return; }
   const amount = eid("freezer-amt").value.trim();
-  freezer.push({ name, amount });
+  freezer.push({ name, amount, addedAt: new Date().toISOString() });
   saveFreezer(freezer);
   eid("freezer-name").value = "";
   eid("freezer-amt").value = "";
