@@ -1808,6 +1808,8 @@ function renderLunchMealPrep(dayGrid) {
       const row=document.createElement("div"); row.className="lmp-rec-row";
       const tags=(r.tags||[]).map(t=>`<span class="rtag ${tagCls(t)}" style="font-size:10px;padding:2px 6px">${t}</span>`).join("");
       const titleSpan=document.createElement("span"); titleSpan.className="lmp-rec-title"; titleSpan.textContent=r.title;
+      titleSpan.style.cssText="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(0,0,0,.15);text-underline-offset:2px";
+      titleSpan.addEventListener("click", e=>{ e.stopPropagation(); openModal(r.id); });
       const tagsDiv=document.createElement("div"); tagsDiv.style.display="flex"; tagsDiv.style.gap="3px"; tagsDiv.innerHTML=tags;
       const rx=document.createElement("button"); rx.className="meal-x"; rx.textContent="✕";
       rx.addEventListener("click",()=>{
@@ -1903,6 +1905,8 @@ function renderPlanner() {
           const r=recipes.find(x=>x.id===rid); if(!r) return;
           const row=document.createElement("div"); row.className="meal-rec-row";
           const titleSpan=document.createElement("span"); titleSpan.className="meal-rec-title"; titleSpan.textContent=r.title;
+          titleSpan.style.cssText="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(0,0,0,.15);text-underline-offset:2px";
+          titleSpan.addEventListener("click", e=>{ e.stopPropagation(); openModal(rid); });
           const tagsDiv=document.createElement("div"); tagsDiv.className="meal-rec-tags";
           (r.tags||[]).forEach(t=>{const s=document.createElement("span");s.className="rtag "+tagCls(t);s.style.fontSize="10px";s.style.padding="2px 6px";s.textContent=t;tagsDiv.appendChild(s);});
           const rx=document.createElement("button"); rx.className="meal-x"; rx.style.marginLeft="4px"; rx.textContent="✕";
