@@ -724,12 +724,32 @@ input,textarea{font-family:inherit}
       <button style="background:none;border:none;color:var(--label2);font-size:22px;cursor:pointer" id="rules-close">✕</button>
     </div>
     <div class="rules-body">
-      <p style="font-size:13px;color:var(--label2);margin-bottom:12px;line-height:1.6">Claude uses these rules every time it generates a week. Edit freely — changes apply on the next generate.</p>
+      <!-- Weekly produce & fish -->
+      <div style="margin-bottom:20px">
+        <div style="display:flex;gap:12px;margin-bottom:12px">
+          <div style="flex:1">
+            <label class="lbl" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              🌿 Farm produce this week
+              <span style="font-size:10px;color:var(--label3);font-weight:400">clears each week</span>
+            </label>
+            <textarea class="rules-txta" id="farm-txta" style="min-height:80px" placeholder="e.g. asparagus, strawberries, peas, radishes, spring onions…"></textarea>
+          </div>
+          <div style="flex:1">
+            <label class="lbl" style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              🐟 Fish delivery this week
+              <span style="font-size:10px;color:var(--label3);font-weight:400">clears each week</span>
+            </label>
+            <textarea class="rules-txta" id="fish-txta" style="min-height:80px" placeholder="e.g. 2 salmon fillets, 500g mackerel, 1 whole sea bream…"></textarea>
+          </div>
+        </div>
+      </div>
+      <!-- Standing rules -->
+      <label class="lbl" style="margin-bottom:6px">Standing rules</label>
       <textarea class="rules-txta" id="rules-txta"></textarea>
       <div id="gen-notes" class="gen-notes hidden"></div>
     </div>
     <div style="padding:14px 20px;border-top:1px solid var(--sep);display:flex;gap:10px">
-      <button class="btn" style="margin-top:0;flex:1;padding:12px" id="rules-save-btn">Save Rules</button>
+      <button class="btn" style="margin-top:0;flex:1;padding:12px" id="rules-save-btn">Save</button>
       <button class="btn-ghost" style="padding:12px 18px" id="rules-cancel-btn">Cancel</button>
     </div>
   </div>
@@ -866,6 +886,8 @@ RULES:
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
 const FREEZER_KEY    = "ek-freezer-v1";
 const RULES_KEY      = "ek-rules-v1";
+const FARM_KEY       = "ek-farm-v1";
+const FISH_KEY       = "ek-fish-v1";
 const FEEDBACK_KEY   = "ek-plan-feedback-v1";
 const DEFAULT_RULES  = `1. Select recipes in the correct produce season (match Summer/Fall/Spring/Winter tag to current season; "All" or untagged recipes are always OK).
 2. Across the week the selected recipes should collectively include at least 30 different plant types (fruits, vegetables, herbs, and spices count).
@@ -885,6 +907,10 @@ function loadFreezer()   { try { return JSON.parse(localStorage.getItem(FREEZER_
 function saveFreezer(f)  { try { localStorage.setItem(FREEZER_KEY, JSON.stringify(f)); } catch {} }
 function loadRules()     { return localStorage.getItem(RULES_KEY) || DEFAULT_RULES; }
 function saveRules(r)    { localStorage.setItem(RULES_KEY, r); }
+function loadFarm(wk)    { try { return (JSON.parse(localStorage.getItem(FARM_KEY)||"{}")[wk])||""; } catch { return ""; } }
+function saveFarm(wk,v)  { try { const d=JSON.parse(localStorage.getItem(FARM_KEY)||"{}"); d[wk]=v; localStorage.setItem(FARM_KEY,JSON.stringify(d)); } catch {} }
+function loadFish(wk)    { try { return (JSON.parse(localStorage.getItem(FISH_KEY)||"{}")[wk])||""; } catch { return ""; } }
+function saveFish(wk,v)  { try { const d=JSON.parse(localStorage.getItem(FISH_KEY)||"{}"); d[wk]=v; localStorage.setItem(FISH_KEY,JSON.stringify(d)); } catch {} }
 function loadFeedback()  { try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY)||"[]"); } catch { return []; } }
 function saveFeedback(f) { try { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(f.slice(-40))); } catch {} } // keep last 40
 
@@ -1602,6 +1628,8 @@ eid("edit-cancel-btn").addEventListener("click", ()=>{
 // ─── RULES SHEET ─────────────────────────────────────────────────────────────
 eid("rules-btn").addEventListener("click", () => {
   eid("rules-txta").value = loadRules();
+  eid("farm-txta").value  = loadFarm(currentWeekKey);
+  eid("fish-txta").value  = loadFish(currentWeekKey);
   hide("gen-notes");
   eid("rules-overlay").classList.remove("hidden");
 });
@@ -1609,8 +1637,10 @@ eid("rules-close").addEventListener("click",  () => eid("rules-overlay").classLi
 eid("rules-cancel-btn").addEventListener("click", () => eid("rules-overlay").classList.add("hidden"));
 eid("rules-save-btn").addEventListener("click", () => {
   saveRules(eid("rules-txta").value.trim() || DEFAULT_RULES);
+  saveFarm(currentWeekKey, eid("farm-txta").value.trim());
+  saveFish(currentWeekKey, eid("fish-txta").value.trim());
   eid("rules-overlay").classList.add("hidden");
-  showToast("✓ Rules saved");
+  showToast("✓ Saved");
 });
 
 // ─── MEAL PLAN GENERATOR ─────────────────────────────────────────────────────
@@ -1647,6 +1677,8 @@ async function generateMealPlan() {
     const season = currentSeason();
     const noCook = getNoCookDays();
     const rules = loadRules();
+    const farmProduce = loadFarm(currentWeekKey);
+    const fishDelivery = loadFish(currentWeekKey);
     const feedback = loadFeedback();
     const now = new Date();
 
@@ -1677,11 +1709,15 @@ async function generateMealPlan() {
     const carbList = CARB_TAGS.join(", ");
     const recipeVariety = recipeList.map(r => `${r.id} | ${r.title} | ${r.season} | P:${r.proteins.join("+")||"none"} C:${r.carbs?.join("+")||"none"} | plants: ${r.plants.slice(0,6).join(", ")}${r.plants.length>6?` +${r.plants.length-6} more`:""}`).join("\n");
 
+    const farmStr = farmProduce ? `\nFARM PRODUCE THIS WEEK (prioritise recipes that use these):\n${farmProduce}` : "";
+    const fishStr = fishDelivery ? `\nFISH DELIVERY THIS WEEK (incorporate into the plan):\n${fishDelivery}` : "";
+
     const prompt = `You are a meal planner. Select the best recipes for each dinner this week.
 
 WEEK: ${weekLabel(currentWeekKey)}
 CURRENT SEASON: ${season}
 NO-COOK DAYS: ${noCook.length ? noCook.join(", ") : "none"}
+${farmStr}${fishStr}
 
 RULES:
 ${rules}
