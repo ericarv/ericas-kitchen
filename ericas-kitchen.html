@@ -542,6 +542,20 @@ input,textarea{font-family:inherit}
       <div class="prog-lbl" id="prog-lbl"></div>
     </div>
     <div id="shop-content"></div>
+
+    <!-- FREEZER -->
+    <div style="margin-top:32px">
+      <div class="shop-cat-lbl" style="font-size:13px;font-weight:700;letter-spacing:.5px;color:var(--brown);margin-bottom:14px;display:flex;align-items:center;gap:10px">
+        🧊 Freezer
+        <span style="flex:1;height:1px;background:var(--border);display:block"></span>
+      </div>
+      <div id="freezer-list"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input class="inp" id="freezer-name" placeholder="Item" style="flex:1;padding:9px 12px;font-size:14px">
+        <input class="inp" id="freezer-amt" placeholder="Amount" style="width:100px;padding:9px 12px;font-size:14px">
+        <button class="btn-sm" id="freezer-add-btn" style="white-space:nowrap;padding:9px 14px">+ Add</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -781,12 +795,15 @@ RULES:
 - If no recipe found: {"error":"No recipe found"}`;
 
 // ─── STORAGE ─────────────────────────────────────────────────────────────────
+const FREEZER_KEY = "ek-freezer-v1";
 function loadRecipes()   { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]"); } catch { return []; } }
 function saveRecipes(r)  { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(r)); } catch {} }
 function loadPlanner()   { try { return JSON.parse(localStorage.getItem(PLANNER_KEY)||"{}"); } catch { return {}; } }
 function savePlanner(p)  { try { localStorage.setItem(PLANNER_KEY, JSON.stringify(p)); } catch {} }
 function loadChecked()   { try { return JSON.parse(localStorage.getItem(SHOPPING_KEY)||"{}"); } catch { return {}; } }
 function saveChecked(c)  { try { localStorage.setItem(SHOPPING_KEY, JSON.stringify(c)); } catch {} }
+function loadFreezer()   { try { return JSON.parse(localStorage.getItem(FREEZER_KEY)||"[]"); } catch { return []; } }
+function saveFreezer(f)  { try { localStorage.setItem(FREEZER_KEY, JSON.stringify(f)); } catch {} }
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let recipes   = loadRecipes();   // overwritten after async sync
@@ -1964,6 +1981,53 @@ function renderShopping(){
   });
 }
 function uncheckAll(){Object.keys(checked).forEach(k=>{checked[k]=false;});syncSaveChecked(checked);renderShopping();}
+
+// ─── FREEZER ──────────────────────────────────────────────────────────────────
+let freezer = loadFreezer();
+
+function renderFreezer() {
+  const list = eid("freezer-list");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!freezer.length) {
+    list.innerHTML = `<div style="color:var(--brown-light);font-size:13px;font-style:italic;padding:6px 0 10px">Nothing in the freezer yet</div>`;
+    return;
+  }
+  freezer.forEach((item, i) => {
+    const el = document.createElement("div");
+    el.style.cssText = "display:flex;align-items:center;gap:10px;padding:9px 13px;background:#fff;border-radius:10px;border:1px solid var(--border);margin-bottom:6px";
+    el.innerHTML = `
+      <div style="flex:1;font-size:14px;font-weight:700;color:var(--brown)">${item.name}</div>
+      ${item.amount ? `<div style="font-size:13px;color:var(--brown-light);white-space:nowrap">${item.amount}</div>` : ""}
+      <button style="background:none;border:none;color:var(--brown-light);font-size:15px;cursor:pointer;padding:2px 4px;line-height:1;flex-shrink:0" data-idx="${i}">✕</button>
+    `;
+    el.querySelector("button").addEventListener("click", () => {
+      freezer.splice(i, 1);
+      saveFreezer(freezer);
+      renderFreezer();
+    });
+    list.appendChild(el);
+  });
+}
+
+eid("freezer-add-btn").addEventListener("click", () => {
+  const name = eid("freezer-name").value.trim();
+  if (!name) { eid("freezer-name").focus(); return; }
+  const amount = eid("freezer-amt").value.trim();
+  freezer.push({ name, amount });
+  saveFreezer(freezer);
+  eid("freezer-name").value = "";
+  eid("freezer-amt").value = "";
+  eid("freezer-name").focus();
+  renderFreezer();
+});
+
+// Allow Enter in the name/amount fields to add
+["freezer-name","freezer-amt"].forEach(id => {
+  eid(id).addEventListener("keydown", e => { if (e.key === "Enter") eid("freezer-add-btn").click(); });
+});
+
+renderFreezer();
 
 
 // ─── SETTINGS ────────────────────────────────────────────────────────────────
