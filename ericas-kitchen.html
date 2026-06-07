@@ -352,6 +352,11 @@ input,textarea{font-family:inherit}
 .shop-empty h3{font-family:Georgia,serif;font-size:20px;color:var(--brown);margin-bottom:6px}
 .shop-empty p{font-size:14px;line-height:1.6}
 
+/* UNIT TOGGLE */
+.unit-toggle{display:inline-flex;border:1.5px solid var(--border);border-radius:20px;overflow:hidden;font-size:12px;font-weight:700}
+.unit-opt{padding:4px 11px;background:#fff;color:var(--brown-light);border:none;cursor:pointer;transition:all .15s;line-height:1}
+.unit-opt.on{background:var(--brown);color:#fff}
+
 /* TOAST */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--brown);color:var(--cream);padding:11px 22px;border-radius:10px;font-size:14px;font-weight:700;box-shadow:0 8px 30px rgba(61,43,31,.3);z-index:400;white-space:nowrap;animation:tIn .3s ease}
 @keyframes tIn{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
@@ -523,7 +528,13 @@ input,textarea{font-family:inherit}
   <div class="wrap">
     <div class="shop-head">
       <div class="shop-title">Shopping List</div>
-      <button class="btn-sm hidden" id="uncheck-btn" onclick="uncheckAll()">Uncheck all</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="unit-toggle" id="shop-unit-toggle">
+          <button class="unit-opt on" data-unit="metric">g</button>
+          <button class="unit-opt" data-unit="imperial">oz</button>
+        </div>
+        <button class="btn-sm hidden" id="uncheck-btn" onclick="uncheckAll()">Uncheck all</button>
+      </div>
     </div>
     <div class="shop-meta" id="shop-meta"></div>
     <div class="shop-progress hidden" id="shop-progress">
@@ -545,6 +556,12 @@ input,textarea{font-family:inherit}
       <button class="modal-x" id="modal-close">✕</button>
     </div>
     <div class="modal-body">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <div class="unit-toggle" id="modal-unit-toggle">
+          <button class="unit-opt on" data-unit="metric">g</button>
+          <button class="unit-opt" data-unit="imperial">oz</button>
+        </div>
+      </div>
       <div id="modal-edit-panel" class="edit-panel hidden">
         <!-- Title & Source -->
         <div class="edit-section">
@@ -1144,7 +1161,7 @@ function renderAddPreview(data, url) {
   const ig = eid("preview-ings"); ig.innerHTML = "";
   (data.ingredients||[]).forEach(ing => {
     const d=document.createElement("div"); d.className="ing-pill";
-    d.innerHTML=`<span class="ing-name">${normalizeIngName(ing.name)}</span><span class="ing-amt">${cleanAmt(ing.amount)}</span>`; ig.appendChild(d);
+    d.innerHTML=`<span class="ing-name">${normalizeIngName(ing.name)}</span><span class="ing-amt">${convertAmtStr(cleanAmt(ing.amount))}</span>`; ig.appendChild(d);
   });
   const sl = eid("preview-steps"); sl.innerHTML = "";
   (data.steps||[]).forEach((step,i) => {
@@ -1308,7 +1325,7 @@ function renderModalContent(r) {
     mc.innerHTML = `<div class="modal-sec"><div class="link-only-box">${r.url?`<p>Saved as a link. Open the recipe and use <strong>Edit recipe</strong> below to add ingredients and steps.</p><a class="modal-link" href="${r.url}" target="_blank" rel="noopener">Open recipe ↗</a>`:`<p>No recipe text yet. Tap <strong>Edit recipe</strong> to add ingredients and steps.</p>`}</div></div>`;
     return;
   }
-  const ings = (r.ingredients||[]).map(i=>`<div class="ming"><div class="ming-dot"></div><div style="flex:1"><span class="ming-name">${normalizeIngName(i.name)}</span>${i.amount?`<span class="ming-amt">${cleanAmt(i.amount)}</span>`:""}</div></div>`).join("");
+  const ings = (r.ingredients||[]).map(i=>`<div class="ming"><div class="ming-dot"></div><div style="flex:1"><span class="ming-name">${normalizeIngName(i.name)}</span>${i.amount?`<span class="ming-amt">${convertAmtStr(cleanAmt(i.amount))}</span>`:""}</div></div>`).join("");
   const steps = (r.steps||[]).map((s,i)=>`<li class="mstep"><div class="mstep-n">${i+1}</div><div class="mstep-t">${s}</div></li>`).join("");
   mc.innerHTML = `<div class="modal-sec"><div class="sec-lbl">Ingredients</div><div class="modal-ings">${ings}</div></div><div class="modal-sec"><div class="sec-lbl">Instructions</div><ul class="modal-steps">${steps}</ul></div>`;
 }
@@ -1679,6 +1696,67 @@ function renderPickerList() {
   });
 }
 
+// ─── UNIT CONVERSION ─────────────────────────────────────────────────────────
+let useMetric = localStorage.getItem("ek-units") !== "imperial";
+
+function setUnitPref(metric) {
+  useMetric = metric;
+  localStorage.setItem("ek-units", metric ? "metric" : "imperial");
+  // Sync both toggles
+  document.querySelectorAll(".unit-toggle .unit-opt").forEach(b => {
+    b.classList.toggle("on", b.dataset.unit === (metric ? "metric" : "imperial"));
+  });
+}
+
+function fmtNum(n) {
+  if (n === Math.round(n)) return String(Math.round(n));
+  const fracs = [[.25,"¼"],[.33,"⅓"],[.5,"½"],[.67,"⅔"],[.75,"¾"]];
+  const w = Math.floor(n), f = n - w;
+  for (const [v,s] of fracs) { if (Math.abs(f-v) < 0.05) return (w>0?w+" ":"")+s; }
+  return n.toFixed(1).replace(/\.0$/,"");
+}
+
+function convertAmtStr(s) {
+  if (!s || useMetric) return s;
+  // Try to parse leading number + unit
+  const m = s.match(/^(\d+(?:[.,]\d+)?(?:\s*\/\s*\d+)?)\s*([a-zA-Z]+)/);
+  if (!m) return s;
+  let num = parseFloat(m[1].replace(",","."));
+  if (m[1].includes("/")) { const p=m[1].split("/"); num=parseFloat(p[0])/parseFloat(p[1]); }
+  const unit = m[2].toLowerCase();
+  const rest = s.slice(m[0].length); // anything after unit (ignored in display)
+  switch(unit) {
+    case "g":    return num < 30 ? `${fmtNum(+(num/28.35).toFixed(1))} oz` : `${fmtNum(Math.round(num/28.35))} oz`;
+    case "kg":   return `${fmtNum(+(num*2.205).toFixed(1))} lbs`;
+    case "ml":
+      if (num >= 240) return `${fmtNum(+(num/240).toFixed(1))} cups`;
+      if (num >= 30)  return `${fmtNum(+(num/15).toFixed(1))} tbsp`;
+      return `${fmtNum(+(num/5).toFixed(1))} tsp`;
+    case "l":    return `${fmtNum(+(num*4.227).toFixed(1))} cups`;
+    default:     return s; // cups/tbsp/tsp/oz/lbs — keep as-is
+  }
+}
+
+document.querySelectorAll(".unit-toggle").forEach(tog => {
+  tog.addEventListener("click", e => {
+    const btn = e.target.closest(".unit-opt");
+    if (!btn) return;
+    setUnitPref(btn.dataset.unit === "metric");
+    // Re-render wherever we are
+    const activeTab = document.querySelector(".ntab.on")?.dataset.tab;
+    if (activeTab === "shopping") renderShopping();
+    if (document.getElementById("modal-overlay") && !document.getElementById("modal-overlay").classList.contains("hidden")) {
+      const r = recipes.find(x=>x.id===currentRecipeId);
+      if (r) renderModalContent(r);
+    }
+  });
+});
+
+// Sync toggle state on load
+document.querySelectorAll(".unit-toggle .unit-opt").forEach(b => {
+  b.classList.toggle("on", b.dataset.unit === (useMetric ? "metric" : "imperial"));
+});
+
 // Strip prep context from amount for display (keeps qty + unit only)
 function cleanAmt(s) {
   if (!s) return s;
@@ -1878,7 +1956,7 @@ function renderShopping(){
     grouped[cat].forEach(item=>{
       const el=document.createElement("div");
       el.className="shop-item"+(checked[item.key]?" chk":"");
-      el.innerHTML=`<div class="check-circle"><span class="check-tick">✓</span></div><div style="flex:1;min-width:0"><div class="shop-item-name">${item.name}</div>${item.sources.length?`<div class="shop-sources">${item.sources.join(", ")}</div>`:""}</div>${item.amount?`<div class="shop-item-amt">${item.amount}</div>`:""}`;
+      el.innerHTML=`<div class="check-circle"><span class="check-tick">✓</span></div><div style="flex:1;min-width:0"><div class="shop-item-name">${item.name}</div>${item.sources.length?`<div class="shop-sources">${item.sources.join(", ")}</div>`:""}</div>${item.amount?`<div class="shop-item-amt">${convertAmtStr(item.amount)}</div>`:""}`;
       el.addEventListener("click",()=>{checked[item.key]=!checked[item.key];syncSaveChecked(checked);renderShopping();});
       div.appendChild(el);
     });
