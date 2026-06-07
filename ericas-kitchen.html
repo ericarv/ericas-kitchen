@@ -156,9 +156,12 @@ input,textarea{font-family:inherit}
 .mini-pill{background:var(--cream);color:var(--brown-mid);padding:2px 8px;border-radius:10px;font-size:11px;border:1px solid var(--border)}
 .more-pill{background:var(--tc-pale);color:var(--tc);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
 .link-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--sage);font-weight:700;background:var(--sage-pale);padding:3px 9px;border-radius:10px}
-.rcard-foot{border-top:1px solid var(--border);padding:10px 18px;display:flex;justify-content:space-between;align-items:center}
-.rcard-date{font-size:11px;color:var(--brown-light)}
+.rcard-foot{border-top:1px solid var(--sep);padding:10px 16px;display:flex;justify-content:space-between;align-items:center}
+.rcard-date{font-size:11px;color:var(--label3)}
 .rcard-arrow{color:var(--tc)}
+.star-btn{background:none;border:none;font-size:18px;line-height:1;padding:2px;transition:transform .15s;flex-shrink:0}
+.star-btn:hover{transform:scale(1.2)}
+.rcard-foot-right{display:flex;align-items:center;gap:8px}
 .empty{text-align:center;padding:64px 20px;color:var(--brown-light)}
 .empty-icon{font-size:48px;margin-bottom:14px}
 .empty h3{font-family:Georgia,serif;font-size:20px;color:var(--brown);margin-bottom:6px}
@@ -1258,6 +1261,18 @@ function buildFilterBar() {
   bar.innerHTML = "";
   const lbl = document.createElement("span"); lbl.className="filter-lbl"; lbl.textContent="Filter:";
   bar.appendChild(lbl);
+  // Starred filter
+  const starBtn = document.createElement("button");
+  starBtn.className = "fpill" + (catFilters.includes("_starred") ? " on" : "");
+  starBtn.style.cssText = catFilters.includes("_starred") ? "background:#FFF3CD;border-color:#D97706;color:#8A6000" : "";
+  starBtn.textContent = "⭐ Peter's picks";
+  starBtn.addEventListener("click", () => {
+    const i = catFilters.indexOf("_starred");
+    if (i>=0) catFilters.splice(i,1); else catFilters.push("_starred");
+    renderCatalogue();
+  });
+  bar.appendChild(starBtn);
+  const div0 = document.createElement("div"); div0.className="fdiv"; bar.appendChild(div0);
   [...PROTEIN_TAGS,...CARB_TAGS,...SEASON_TAGS,...COOK_TAGS].forEach(t => {
     const b = document.createElement("button");
     b.className = "fpill " + tagCls(t) + (catFilters.includes(t)?" on":"");
@@ -1283,10 +1298,13 @@ function renderCatalogue() {
   buildFilterBar();
   const q = eid("cat-search").value.toLowerCase();
   const grid = eid("cat-grid");
+  const tagFilters = catFilters.filter(f => f !== "_starred");
+  const starredOnly = catFilters.includes("_starred");
   const filtered = recipes.filter(r => {
     const mq = !q || [r.title,r.source,...(r.ingredients||[]).map(i=>i.name)].some(s=>s?.toLowerCase().includes(q));
-    const mf = catFilters.length===0 || catFilters.every(f=>r.tags?.includes(f));
-    return mq && mf;
+    const mf = tagFilters.length===0 || tagFilters.every(f=>r.tags?.includes(f));
+    const ms = !starredOnly || r.starred;
+    return mq && mf && ms;
   });
   if (filtered.length===0) {
     grid.innerHTML = `<div class="empty"><div class="empty-icon">${recipes.length===0?"📖":"🔍"}</div><h3>${recipes.length===0?"Your cookbook awaits":"No matches"}</h3><p>${recipes.length===0?"Add your first recipe using the Add tab.":"Try a different search."}</p></div>`;
@@ -1311,7 +1329,20 @@ function renderCatalogue() {
         ${tags ? `<div class="rcard-tags">${tags}</div>` : ""}
         ${body}
       </div>
-      <div class="rcard-foot"><span class="rcard-date">${fmtDate(r.savedAt)}</span><span class="rcard-arrow">→</span></div>`;
+      <div class="rcard-foot">
+        <span class="rcard-date">${fmtDate(r.savedAt)}</span>
+        <div class="rcard-foot-right">
+          <button class="star-btn" title="${r.starred ? "Unstar":"Star as Peter's pick"}">${r.starred ? "⭐" : "☆"}</button>
+          <span class="rcard-arrow">→</span>
+        </div>
+      </div>`;
+    card.querySelector(".star-btn").addEventListener("click", e => {
+      e.stopPropagation();
+      r.starred = !r.starred;
+      saveRecipes(recipes); syncSaveRecipe(r);
+      e.currentTarget.textContent = r.starred ? "⭐" : "☆";
+      e.currentTarget.title = r.starred ? "Unstar" : "Star as Peter's pick";
+    });
     card.addEventListener("click", ()=>openModal(r.id));
     g.appendChild(card);
   });
