@@ -45,6 +45,17 @@ input,textarea{font-family:inherit}
 .ntab.on{background:#fff;color:var(--label);box-shadow:0 1px 3px rgba(0,0,0,.12),0 1px 1px rgba(0,0,0,.05)}
 .badge{background:var(--tc);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px}
 
+/* MOBILE: bottom tab bar */
+@media(max-width:600px){
+  .nav{display:none}
+  body{padding-bottom:64px}
+  .bottom-nav{display:flex!important}
+}
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,.95);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(--sep-hair);padding:8px 0 max(8px,env(safe-area-inset-bottom))}
+.btab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;color:var(--label3);font-size:10px;font-weight:600;padding:4px 8px;cursor:pointer;transition:color .18s}
+.btab.on{color:var(--tc)}
+.btab-icon{font-size:22px;line-height:1}
+
 /* VIEWS */
 .view{display:none}.view.on{display:block}
 .wrap{max-width:640px;margin:0 auto;padding:32px 16px}
@@ -422,6 +433,15 @@ input,textarea{font-family:inherit}
   <button class="settings-btn" id="settings-btn" title="Settings / Sign out">⚙️</button>
   </div>
 </header>
+
+<!-- MOBILE BOTTOM TAB BAR -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="btab on" data-tab="add"><span class="btab-icon">＋</span>Add</button>
+  <button class="btab" data-tab="catalogue"><span class="btab-icon">📖</span>Recipes</button>
+  <button class="btab" data-tab="planner"><span class="btab-icon">📅</span>Planner</button>
+  <button class="btab" data-tab="shopping"><span class="btab-icon">🛒</span>Shop</button>
+  <button class="btab" id="settings-btn-mobile"><span class="btab-icon">⚙️</span>Settings</button>
+</nav>
 
 <div id="toast-container"></div>
 
@@ -1010,18 +1030,25 @@ async function parseRecipeText(text) {
 }
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll(".ntab").forEach(b=>b.classList.toggle("on", b.dataset.tab===tab));
+  document.querySelectorAll(".btab[data-tab]").forEach(b=>b.classList.toggle("on", b.dataset.tab===tab));
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
+  eid("view-"+tab).classList.add("on");
+  if (tab==="catalogue") renderCatalogue();
+  if (tab==="planner")   renderPlanner();
+  if (tab==="shopping")  renderShopping();
+}
+
 document.querySelectorAll(".ntab").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".ntab").forEach(b=>b.classList.remove("on"));
-    document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
-    btn.classList.add("on");
-    const tab = btn.dataset.tab;
-    eid("view-"+tab).classList.add("on");
-    if (tab==="catalogue") renderCatalogue();
-    if (tab==="planner")   renderPlanner();
-    if (tab==="shopping")  renderShopping();
-  });
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
+
+document.querySelectorAll(".btab[data-tab]").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+eid("settings-btn-mobile")?.addEventListener("click", () => showSetup());
 
 // ─── ADD VIEW ─────────────────────────────────────────────────────────────────
 let addMode = "image";
