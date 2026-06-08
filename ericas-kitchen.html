@@ -975,9 +975,8 @@ function showToast(msg) {
 // ─── API ──────────────────────────────────────────────────────────────────────
 // Use local proxy when running from localhost (avoids CORS), direct otherwise.
 function apiUrl() {
-  const h = location.hostname;
-  if (h === "localhost" || h === "127.0.0.1") return "/api/proxy";
-  throw new Error("Open this app via the local server: run `python3 server.py` in the app folder, then visit http://localhost:8080");
+  if (location.protocol === "file:") throw new Error("Open this app via the local server: run `python3 server.py` in the app folder, then visit http://localhost:8080 (or your local IP on mobile)");
+  return "/api/proxy";
 }
 
 async function callClaude(payload, extraHeaders = {}) {
