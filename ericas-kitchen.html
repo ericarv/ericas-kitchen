@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Erica's Kitchen</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Erica's Kitchen">
+<link id="apple-touch-icon" rel="apple-touch-icon">
+<link id="pwa-manifest" rel="manifest">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -2515,6 +2520,65 @@ async function initApp() {
   syncReady = true;
   renderPlanner();
 }
+// ─── PWA ICON ─────────────────────────────────────────────────────────────────
+(function() {
+  const C = 512, r = 114; // canvas size, corner radius
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = C;
+  const ctx = canvas.getContext("2d");
+
+  // Squircle background
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(C-r, 0); ctx.arcTo(C, 0, C, r, r);
+  ctx.lineTo(C, C-r); ctx.arcTo(C, C, C-r, C, r);
+  ctx.lineTo(r, C);   ctx.arcTo(0, C, 0, C-r, r);
+  ctx.lineTo(0, r);   ctx.arcTo(0, 0, r, 0, r);
+  ctx.closePath();
+  ctx.fillStyle = "#C4623A";
+  ctx.fill();
+
+  // Fork — white, centred
+  ctx.fillStyle = "#fff";
+  function rr(x,y,w,h,rad) {
+    ctx.beginPath();
+    ctx.moveTo(x+rad,y); ctx.lineTo(x+w-rad,y); ctx.arcTo(x+w,y,x+w,y+rad,rad);
+    ctx.lineTo(x+w,y+h-rad); ctx.arcTo(x+w,y+h,x+w-rad,y+h,rad);
+    ctx.lineTo(x+rad,y+h); ctx.arcTo(x,y+h,x,y+h-rad,rad);
+    ctx.lineTo(x,y+rad); ctx.arcTo(x,y,x+rad,y,rad);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // 4 tines — each 26px wide, 16px gap
+  const tW=26, gap=16, tH=158, tineRad=13;
+  const totalTW = 4*tW + 3*gap; // 158
+  let tx = (C - totalTW) / 2;   // 177
+  for (let i=0; i<4; i++) { rr(tx, 68, tW, tH, tineRad); tx += tW+gap; }
+
+  // Bridge connecting tines
+  rr((C-totalTW)/2, 210, totalTW, 36, 8);
+
+  // Handle
+  const hW=52, hH=240;
+  rr((C-hW)/2, 240, hW, hH, 26);
+
+  const png = canvas.toDataURL("image/png");
+  document.getElementById("apple-touch-icon").href = png;
+
+  // PWA manifest (inline blob)
+  const manifest = {
+    name: "Erica's Kitchen",
+    short_name: "Kitchen",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#F2F2F7",
+    theme_color: "#ffffff",
+    icons: [{ src: png, sizes: "512x512", type: "image/png" }]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:"application/manifest+json"});
+  document.getElementById("pwa-manifest").href = URL.createObjectURL(blob);
+})();
+
 initApp();
 </script>
 </body>
